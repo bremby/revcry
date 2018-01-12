@@ -1,0 +1,5 @@
+specification/*.aux
+specification/*.bbl
+specification/*.blg
+specification/*.dvi
+specification/*.log
