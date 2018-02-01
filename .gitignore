@@ -3,3 +3,5 @@ specification/*.bbl
 specification/*.blg
 specification/*.dvi
 specification/*.log
+thesis_contract.pdf
+notes.md

@@ -1,5 +1,5 @@
 \documentclass[a4paper]{article}
-\usepackage[margin=35mm]{geometry}
+\usepackage[margin=33mm]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage{xcolor}
 \usepackage{textcomp}
@@ -36,11 +36,11 @@
 \part*{\center Lightweight Crypto in Reverse}
 }
 
-\begin{abstract}
-The aim of this thesis is to look at cryptography in a 
+\begin{abstract} The aim of this thesis is to look at cryptography in a 
 reversible computing environment. Reversibility works on the principle 
 that no information can be destroyed during the computation, so any 
-computation can be traced to the beginning. This feature has the 
+computation can be traced to the beginning. Also, in a clean setting no 
+information is unintentionally copied. These features have the 
 implication that any residual information is either known (e.g. 
 null-initialized memory stays zero at the end of the computation), or 
 the encryption implementation can be potentially attacked by using the 
@@ -64,8 +64,10 @@ area of security, particularly cryptography. These devices have too
 little processing power (e.g. due to small physical sizes or 
 limitations in terms of electrical power consumption) that they cannot 
 run a complex encryption scheme that is normally required by today's 
-standards when, for example, browsing the web. These require what is 
-now known as \textsc{lightweight cryptography} - a set of hashing 
+standards when, for example, browsing the web; yet, they require at 
+least some level of encryption due to the fact that a large portion of 
+them will be transmitting data wirelessly. These require what is now 
+known as \textsc{lightweight cryptography} - a set of hashing 
 algorithms, ciphers and other that are optimized for as little CPU 
 processing as possible.
 
@@ -75,19 +77,36 @@ directions of the program flow, forwards and backwards. Two languages
 that have existing interpreters are Janus (imperative, C-like) and RFun 
 (functional, Haskell-like). Both languages are still experimental and 
 have not yet established a programming culture or community and their 
-features are still being extended. These facts may become an obstacle, 
-and so this alone is interesting topic to explore.
+features are still being extended. To give an insight, the most complex 
+algorithms implemented in Janus are either sorting or simple 
+compression algorithms; for RFun, it is likely its self-interpreter. 
+These facts alone make this topic interesting to explore.
 
 However, the combination of cryptography and reversibility gives us the 
-opportunity to look for weaknesses in the implementation of 
-cryptographic functions. Reversibility implies that no piece of 
-information is destroyed. Since reversible programs can be executed in 
-both directions, this also means that no information can be created 
-(otherwise it would be destroyed when run in the other direction). So, 
-for example, when given a string and a key, encryption outputs an 
-encrypted string and a key, but nothing else. This lack of additional 
-information means there is no secondary forgotten output that could be 
-used to weaken the encryption. Furthermore, as a nice bonus we get a 
+opportunity to look for some side-channel vulnerabilities. There are 
+several of these, which in theory could be prevented in a reversible 
+setting. Reversibility implies that no piece of information is 
+destroyed. Since reversible programs can be executed in both 
+directions, this also means that no information can be created, or 
+added; only data transformation from input to output occurs. This shows 
+a lack of direct information leakage - a one kind of side-channel 
+vulnerability. Other theoretically possible channels are power 
+consumption (requiring the actual reversible hardware), execution time 
+(due to the "data-transformation" style of the implementation, the 
+execution should be more-or-less free of branching) and possibly even 
+electromagnetic radiation patterns (heat and radio) could be more 
+predictable for any input. However, due to the lack of reversible 
+hardware, we can focus only on those side-channels, that are at least 
+somewhat independent of it. Therefore, in this thesis we focus only on 
+the direct information leakage from correct algorithm implementation 
+and execution timing\footnote{Note that even the same code can take 
+different amounts of time to execute based on the input; such is the 
+experience from complex processors like the x86 architecture. Thus, in 
+this sense we can only analyse the actual code from the perspective of 
+branching, when, e.g., dealing with special cases.}. Work in this area 
+can also help in the future, when reversible hardware is accessible and 
+the hardware-dependent side channels mentioned above can be tested. 
+Furthermore, as a nice bonus of the reversible setting, we get a 
 decryption function just by reversing the program flow on the 
 encryption.
 
@@ -97,12 +116,12 @@ encryption.
 
 At the end of the project I shall be able to:
 \begin{enumerate}
-\item write functionally correct Janus / RFun code
-\item analyse difficulties in writing code in reversible languages from programmer's perspective
-\item analyse potential issues when writing security-sensitive code in reversible languages
-\item implement several cryptography-related functions; block ciphers and hash functions
-\item assess the implementation from security perspective
-\item suggest improvements in development of the reversible languages
+\item write functionally correct reversible code,
+\item analyse difficulties in writing code in reversible languages from programmer's perspective,
+\item analyse potential issues when writing security-sensitive code in reversible languages,
+\item implement several cryptography-related functions; block ciphers and hash functions,
+\item assess the implementation from security perspective, including an analysis of side-channels,
+\item and suggest improvements in development of the reversible languages.
 \end{enumerate}
 
 \nocite{*} % Print all references regardless of whether they were cited in the poster or not
