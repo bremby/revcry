@@ -1,0 +1,103 @@
+/* TEA encryption algorithm
+ * data is an array of two words (64 bits)
+ * key is an array of four words (128 bits)
+ */
+procedure TEA_encipher(int data[], int key[])
+    local int delta = 2654435769
+    local int sum = 0
+    local int i = 0
+    from i = 0 loop
+        sum += delta
+        data[0] += ((data[1] * 16) + key[0]) ^ (data[1] + sum) ^ ((data[1] / 32) + key[1])
+        data[1] += ((data[0] * 16) + key[2]) ^ (data[0] + sum) ^ ((data[0] / 32) + key[3])
+        i += 1
+    until i = 32
+    delocal int i = 32
+    delocal int sum = 32*delta
+    delocal int delta = 2654435769
+
+/* XTEA encryption algorithm
+ * num_rounds is the number of encryption rounds to perform
+ * data is an array of two words (64 bits)
+ * key is an array of four words (128 bits)
+ */
+procedure XTEA_encipher(int num_rounds, int data[], int key[])
+    local int delta = 2654435769
+    local int sum = 0
+    local int i = 0
+    from i = 0 loop
+        data[0] += (((data[1] * 16) ^ (data[1] / 32)) + data[1]) ^ (sum + key[sum & 3])
+        sum += delta
+        data[1] += (((data[0] * 16) ^ (data[0] / 32)) + data[0]) ^ (sum + key[(sum / 2048) & 3])
+        i += 1
+    until i = num_rounds
+    delocal int i = num_rounds
+    delocal int sum = num_rounds*delta
+    delocal int delta = 2654435769
+
+
+/* XXTEA encryption algorithm
+ * data is an array of any number of words (finally a block)
+ * key is an array of four words (128 bits)
+ */
+procedure XXTEA_encipher(int data[], int key[])
+    local int delta = 2654435769
+    local int n = size(data)
+    local int sum = 0
+    local int e = 0
+    local int p = 1
+    local int q = 6 + 52/n
+    from q = 6 + 52/n loop
+        sum += delta
+        e += (sum / 4) & 3
+        data[0] += ((((data[n-1] / 32) ^ (data[1] * 4)) + ((data[1] / 8) ^ (data[n-1] * 16))) ^ ((sum ^ data[1]) + (key[e] ^ data[n-1])))
+        from p = 1 loop
+            data[p] += ((((data[p-1] / 32) ^ (data[p+1] * 4)) + ((data[p+1] / 8) ^ (data[p-1] * 16))) ^ ((sum ^ data[p+1]) + (key[(p & 3) ^ e] ^ data[p-1])))
+            p += 1
+        until p = n-1
+        data[n-1] += ((((data[n-2] / 32) ^ (data[0] * 4)) + ((data[0] / 8) ^ (data[n-2] * 16))) ^ ((sum ^ data[0]) + (key[(p & 3) ^ e] ^ data[n-2])))
+        p -= (n-2)
+        e -= (sum / 4) & 3
+        q -= 1
+    until q = 0
+    delocal int q = 0
+    delocal int p = 1
+    delocal int e = 0
+    delocal int sum = (6+52/n)*delta
+    delocal int n = size(data)
+    delocal int delta = 2654435769
+
+
+procedure main()
+    int key[4]
+    int data[2]
+    int more_data[4]
+    int num_rounds
+
+    key[0] += 0
+    key[1] += 1
+    key[2] += 2
+    key[3] += 3
+    
+    data[0] += 42
+    data[1] += 27
+    
+    more_data[0] += 42
+    more_data[1] += 27
+    more_data[2] += 42
+    more_data[3] += 27
+    
+    num_rounds += 32
+    
+    show(data)
+    call TEA_encipher(data, key)
+    show(data)
+    uncall TEA_encipher(data, key)
+    show(data)
+    call XTEA_encipher(num_rounds, data, key)
+    show(data)
+    uncall XTEA_encipher(num_rounds, data, key)
+    show(more_data)
+    call XXTEA_encipher(more_data, key)
+    show(more_data)
+    uncall XXTEA_encipher(more_data, key)
