@@ -1,0 +1,91 @@
+/* Some useful functions */
+
+/* perform ceil(x/y), where / is a floating point division */
+procedure ceil_after_division(int x, int y, int result)
+    if x % y > 0 then
+        result += (x / y) + 1
+    else
+        result += x / y
+    fi x % y > 0
+
+/* Rotate 'x' by 'r' bits to the left */
+procedure rotate_left_old(int x, int r)
+    local int temp_hi = x & (((2**r)-1)*(2**(32-r)))
+    local int temp_lo = x & ((2**(32-r))-1)
+    x -= (temp_hi | temp_lo)
+    x += ((temp_hi / (2**(32-r))) | (temp_lo * (2 ** r)))
+    delocal int temp_lo = (x & (((2**(32-r))-1)*(2**r))) / (2**r)
+    delocal int temp_hi = (x & ((2**r)-1)) * (2 ** (32-r))
+    
+procedure rotate_left(int x, int r)
+    local int rm = r % 32
+    local int bits_hi = (2 ** rm) - 1
+    local int bits_lo = (2 ** (32 - rm)) - 1
+    local int temp_hi = x & (bits_hi * (2 ** (32 - rm)))
+    local int temp_lo = x & bits_lo
+    x ^= (temp_hi | temp_lo) ^ ((temp_hi / (2 ** (32 - rm))) | (temp_lo * (2 ** rm)))
+    delocal int temp_lo = (x & (bits_lo * (2 ** rm))) / (2 ** rm)
+    delocal int temp_hi = (x & bits_hi) * (2 ** (32 - rm))
+    delocal int bits_lo = (2 ** (32 - rm)) - 1
+    delocal int bits_hi = (2 ** rm) - 1
+    delocal int rm = r % 32
+
+/* Time-reversible random number generator */
+procedure trrng_small(int seed[2])
+    local int m = 2048
+    local int a = 1029
+    local int b = 1731
+    local int c = 205
+    local int d = 1497
+    local int intx = 0
+    local int inty = 0
+    intx += (a * seed[0] + b) % m
+    inty += (a * seed[0] + b + a * seed[1] + 507 * seed[0] - b + (a * seed[0] + b - intx)/m) % m
+    intx <=> seed[0]
+    inty <=> seed[1]
+    delocal int inty = (c * (seed[1] + 4194304 - 1536 * ((c * seed[0] + d) % m) - (a * ((c * seed[0] + d) % m) + b - seed[0]) / m )) % m
+    delocal int intx = (c * seed[0] + d) % m
+    delocal int d = 1497
+    delocal int c = 205
+    delocal int b = 1731
+    delocal int a = 1029
+    delocal int m = 2048
+    
+
+//procedure rlcg(int seed)
+    //local int c = 1
+    //local int multiplier = 1664525
+    //// this is harder than I thought, I need the extended euclid for this
+    //delocal int multiplier = 1664525
+    //delocal int c = 1
+
+procedure main()
+    int seed[2] = {0,0}
+    int x1
+    int x2
+    int n
+    x1 += 5
+    x2 += 1073741825
+    n += 3
+    show(x1)
+    call rotate_left(x1, n)
+    show(x1)
+    uncall rotate_left(x1, n)
+    show(x2)
+    call rotate_left(x2, n)
+    show(x2)
+    uncall rotate_left(x2, n)
+    show(seed)
+    call trrng_small(seed)
+    show(seed)
+    call trrng_small(seed)
+    show(seed)
+    call trrng_small(seed)
+    show(seed)
+    call trrng_small(seed)
+    show(seed)
+    uncall trrng_small(seed)
+    show(seed)
+    uncall trrng_small(seed)
+    show(seed)
+    uncall trrng_small(seed)
