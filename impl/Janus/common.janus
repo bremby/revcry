@@ -52,6 +52,22 @@ procedure trrng_small(int seed[2])
     delocal int m = 2048
     
 
+/* Time-reversible random number generator */
+procedure trrng(int seed)
+    local int m = 2 ** 32
+    local int a = 1664525
+    local int b = 1013904223
+    local int c = 4276115653 // = a^(-1) (mod m)
+    local int next = 0
+    next += (a * seed + b) % m
+    next <=> seed
+    delocal int next = (c * (seed - b)) % m
+    delocal int c = 4276115653
+    delocal int b = 1013904223
+    delocal int a = 1664525
+    delocal int m = 2 ** 32
+    
+
 //procedure rlcg(int seed)
     //local int c = 1
     //local int multiplier = 1664525
@@ -61,6 +77,7 @@ procedure trrng_small(int seed[2])
 
 procedure main()
     int seed[2] = {0,0}
+    int seed2 = 2
     int x1
     int x2
     int n
@@ -75,17 +92,36 @@ procedure main()
     call rotate_left(x2, n)
     show(x2)
     uncall rotate_left(x2, n)
-    show(seed)
-    call trrng_small(seed)
-    show(seed)
-    call trrng_small(seed)
-    show(seed)
-    call trrng_small(seed)
-    show(seed)
-    call trrng_small(seed)
-    show(seed)
-    uncall trrng_small(seed)
-    show(seed)
-    uncall trrng_small(seed)
-    show(seed)
-    uncall trrng_small(seed)
+    //show(seed)
+    //call trrng_small(seed)
+    //show(seed)
+    //call trrng_small(seed)
+    //show(seed)
+    //call trrng_small(seed)
+    //show(seed)
+    //call trrng_small(seed)
+    //show(seed)
+    //uncall trrng_small(seed)
+    //show(seed)
+    //uncall trrng_small(seed)
+    //show(seed)
+    //uncall trrng_small(seed)
+    
+    show(seed2)
+    call trrng(seed2)
+    show(seed2)
+    call trrng(seed2)
+    show(seed2)
+    call trrng(seed2)
+    show(seed2)
+    call trrng(seed2)
+    show(seed2)
+    uncall trrng(seed2)
+    show(seed2)
+    uncall trrng(seed2)
+    show(seed2)
+    uncall trrng(seed2)
+    show(seed2)
+    uncall trrng(seed2)
+    show(seed2)
+

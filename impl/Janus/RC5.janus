@@ -1,0 +1,197 @@
+
+/* Rotate 'x' by 'r' bits to the left */
+// bug: does not work for r >=32
+procedure rotate_left(int x, int r)
+    local int temp_hi = x & (((2**r)-1)*(2**(32-r)))
+    local int temp_lo = x & ((2**(32-r))-1)
+    x -= (temp_hi | temp_lo)
+    x += ((temp_hi / (2**(32-r))) | (temp_lo * (2 ** r)))
+    delocal int temp_lo = (x & (((2**(32-r))-1)*(2**r))) / (2**r)
+    delocal int temp_hi = (x & ((2**r)-1)) * (2 ** (32-r))
+
+/* Rotate 'x' by 'r' bits to the left */
+//procedure rotate_left(int x, int r)
+    //local int rm = r % 32
+    ////local int bits_hi = (2 ** rm) - 1
+    //local int bits_hi = ((2 ** rm) - 1) * (2 ** (32 - rm))
+    ////local int bits_lo = (2 ** (32 - rm)) - 1
+    //local int bits_lo = !bits_hi
+    //local int temp_hi = x & (bits_hi * (2 ** (32 - rm)))
+    //local int temp_lo = x & bits_lo
+    //x ^= (temp_hi | temp_lo) ^ ((temp_hi / (2 ** (32 - rm))) | (temp_lo * (2 ** rm)))
+    //delocal int temp_lo = (x & (bits_lo * (2 ** rm))) / (2 ** rm)
+    //delocal int temp_hi = (x & bits_hi) * (2 ** (32 - rm))
+    ////delocal int bits_lo = (2 ** (32 - rm)) - 1
+    //delocal int bits_lo = !bits_hi
+    ////delocal int bits_hi = (2 ** rm) - 1
+    //delocal int bits_hi = ((2 ** rm) - 1) * (2 ** (32 - rm))
+    //delocal int rm = r % 32
+
+
+/* Set up RC5 key
+ * w   = The length of a word in bits, typically 16, 32 or 64. Encryption is done in 2-word blocks.
+ * u   = w/8 - The length of a word in bytes.
+ * b   = The length of the key in bytes.
+ * K[] = The key, considered as an array of bytes (using 0-based indexing).
+ * c   = The length of the key in words (or 1, if b = 0).
+ * L[] = A temporary working array used during key scheduling. initialized to the key in words.
+ * r   = The number of rounds to use when encrypting data.
+ * t   = 2(r+1) - the number of round subkeys required.
+ * S[] = The round subkey words.
+ */
+procedure RC5_setup(int K[], int S[], int rounds, int L[])
+    // w = 32, r = 12, b = 16
+    // c = max(1, ceil(8 * b/w))
+    // t = 2 * (r+1)
+    //WORD i, j, k, u = w/8, A, B, L[c];
+    local int b = size(K) * 4
+    local int c = b / 4
+    local int r = rounds
+    local int t = 2 * (r+1)
+    local int i = b-1
+    local int j = 1
+    local int k = 1
+    local int u = 4 // = w/8
+    local int A = 0
+    local int B = 0
+    //local int L[c] = {0} // the initialization is necessary, but whole array is 0-initialized
+    //local int S[t] = {0} // the initialization is necessary, but whole array is 0-initialized
+    local int P = 3084996963 // magic constant; dependent on w, which we set to 32
+    local int Q = 2654435769 // magic constant; dependent on w, which we set to 32
+   
+    /* The following loop is rather silly:
+     * K: assumed array of bytes
+     * L: array of words (ints)
+     * starting with the following key and 16-bit words, we get the array L below:
+     * K: [0][1][2][3][4][5] 
+     * L: [10][32][54]
+     * but in little endian, L is exactly the same as K
+     */
+    //for(i = b-1, L[c-1] = 0; i != -1; i--)
+    //from i = b-1 loop
+      //  //L[i/u] = (L[i/u] << 8) + K[i];
+        //L[i/u] *= 256 // multiplication is not generally reversible :(
+        //L[i/u] += K[i]
+        //i -= 1
+    //until i = -1
+    //i += 2
+    i -= (b-2) //we skipped the loop above, thus we manually set i to 1
+   
+    //for(S[0] = P, i = 1; i < t; i++)
+    S[0] += P
+    from i = 1 loop
+        //S[i] = S[i-1] + Q;
+        S[i] += S[i-1] + Q
+        i += 1
+    until i = t
+   
+    i -= t - 1 // i = 1
+    // we are partially unrolling the loop to avoid an if-branch
+    S[0] += A + B
+    call rotate_left(S[0], 3)
+    A += S[0]
+    L[0] += A
+    call rotate_left(L[0], A)
+    B += L[0]
+    //for(A = B = i = j = k = 0; k < 3 * t; k++, i = (i+1) % t, j = (j+1) % c)
+    from k = 1 loop
+        //A = S[i] = ROTL(S[i] + (A + B), 3);
+        S[i] += A + B
+        call rotate_left(S[i], 3)
+        if k % t = 0 then
+            A -= S[t-1]
+        else 
+            A -= S[i-1]
+        fi k % t = 0
+        A += S[i]
+        //B = L[j] = ROTL(L[j] + (A + B), (A + B));
+        L[j] += (A+B)
+        call rotate_left(L[j], A+B)
+        if k % c = 0 then
+            B -= L[c-1]
+        else 
+            B -= L[i-1]
+        fi k % c = 0
+        B += L[j]
+        
+        // final loop variable additions
+        k += 1
+        if i + 1 = t then
+            i -= (t-1)
+        else
+            i += 1
+        fi i = 0
+        if j + 1 = c then
+            j -= (c-1)
+        else
+            j += 1
+        fi j = 0
+    until k < 3 * t
+    
+    delocal int Q = 2654435769 // magic constant; dependent on w, which we set to 32
+    delocal int P = 3084996963 // magic constant; dependent on w, which we set to 32
+    //delocal int S[t] = {0}
+    delocal int B = L[j-1] // WARNING: potential out of bounds access. Dunno how to fix, I might need a ternary operator ?:
+    delocal int A = S[t-1]
+    //delocal int L[c] = {0}
+    delocal int u = 4 // = w/8
+    delocal int k = 3*t
+    delocal int j = (3*t) % c
+    delocal int i = 0
+    delocal int t = 2 * (r+1)
+    delocal int r = rounds
+    delocal int c = b / 4
+    delocal int b = size(K)
+
+// pt = plaintext, ct = ciphertext
+procedure RC5_encrypt(int pt[2], int ct[2], int key[])
+    local int i = 1
+    local int A = 0
+    local int B = 0
+    local int A2 = 0
+    local int B2 = 0
+    A += pt[0] + key[0]
+    B += pt[1] + key[1]
+    
+    from i = 1 loop
+        A ^= B
+        call rotate_left(A, B)
+        A += S[2*i]
+        
+        B ^= A
+        call rotate_left(B, A)
+        B += S[2*i + 1]
+        
+        i += 1
+    until i > r
+    delocal int B2 = 0
+    delocal int A2 = 0
+    delocal int B = 0
+    delocal int A = 0
+    delocal int i = 0
+
+procedure test_rev(int x)
+    x += 1
+
+procedure main()
+    int x1
+    int x2
+    int n
+
+    
+    int rounds = 12
+    int ek_len = 2 * (rounds + 1)
+    int key[4] = {1,2,3,4} //538976288
+    int expanded_key[ek_len]
+    int temporary_storage[300]
+    int plaintext[2] = {42, 17}
+    int ciphertext[2]
+
+    //int test_rotation = 3084996963
+    //call rotate_left(plaintext[0], 3)
+
+    //call test_rev(plaintext[0])
+
+    show(expanded_key)
+    call RC5_setup(key, expanded_key, rounds, temporary_storage)
+

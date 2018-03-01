@@ -1,0 +1,118 @@
+
+procedure rotate_left(int x, int r)
+    local int rm = r % 32
+    local int bits_hi = (2 ** rm) - 1
+    local int bits_lo = (2 ** (32 - rm)) - 1
+    local int temp_hi = x & (bits_hi * (2 ** (32 - rm)))
+    local int temp_lo = x & bits_lo
+    x ^= (temp_hi | temp_lo) ^ ((temp_hi / (2 ** (32 - rm))) | (temp_lo * (2 ** rm)))
+    delocal int temp_lo = (x & (bits_lo * (2 ** rm))) / (2 ** rm)
+    delocal int temp_hi = (x & bits_hi) * (2 ** (32 - rm))
+    delocal int bits_lo = (2 ** (32 - rm)) - 1
+    delocal int bits_hi = (2 ** rm) - 1
+    delocal int rm = r % 32
+
+/* z0 = 4506230155203752166
+ * z1 = 2575579794259089498
+ * z2 = 3160415496042964403
+ * z3 = 3957284701066611983
+ * z4 = 3781244162168104175
+ */
+
+procedure Simon_key_expansion(int key[], int key_expanded[], int rounds)
+    local int m = size(key)
+    local int tmp = 0
+    local int i = m
+    key_expanded[0] += key[0]
+    key_expanded[1] += key[1]
+    key_expanded[2] += key[2] //todo: 'm' may go only up to 2
+    key_expanded[3] += key[3] //todo: 'm' may go only up to 2
+    from i = m loop
+        tmp += key_expanded[i-1]
+        uncall rotate_left(tmp, 3)
+        if m = 4 then
+            tmp ^= k[i-3]
+        fi m = 4
+        tmp ^= 
+        i += 1
+    until i = round
+    delocal int i = rounds
+    delocal int m = size(key)
+
+// we don't want to employ Benett's trick, I think that's counterproductive in our case (for cryptoanalysis)
+//procedure Simon_round(int S1, int S2, int S8, 
+
+procedure Simon_encipher(int data[2], int key[], int rounds)
+    local int key_expanded[rounds]
+	local int i = 0
+    local int x1 = 0 //these variables are a nightmare to get rid of
+    local int x2 = 0
+    local int x8 = 0
+    call Simon_key_expansion(key, key_expanded)
+    from i = 0 loop
+        x1 += data[0]
+        call rotate_left(x1, 1)
+        x2 += data[0]
+        call rotate_left(x2, 2)
+        x8 += data[0]
+        call rotate_left(x8, 8)
+        /* The AND operation is lossful, i.e. it cannot be reversed without knowing all of its original operands.
+         * Therefore, both x1 and x8 cannot be cleared just by using the rest of the variables used on the line below.
+         * I need to think about this more.
+         *   - that would imply decryption is impossible. The trick is we don't overwrite x, we keep it for the next round.
+         * 
+         * From the inverse round function from the specs:
+         * R(x, y)    = (y ^ f(x) ^ k, x)
+         * R^-1(x, y) = (y, x ^ f(x) ^ k)
+         * (x,y) = R^-1(R(x,y)) = R^-1(y ^ f(x) ^ k, x) = (x, y ^ f(x) ^ k ^ f(x) ^ k)) = (x,y)
+         */
+        // R(x, y) = (y ^ f(x) ^ k, x)
+        data[1] ^= (x1 & x8) ^ x2 ^ key_expanded[i]
+        data[0] <=> data[1]
+        //x2 -= data[0] ^ (x1 & x8) ^ key_expanded[i]
+        // R^-1(x, y) = (y, x ^ f(x) ^ k)
+        rx += data[1]
+        //ry += data[0] ^ () ^ key_expanded[i]
+        call rotate_left(rx, 1)
+        x1 -= rx
+        call rotate_left(rx, 2)
+        x2 -= rx
+        call rotate_left(rx, 8)
+        x8 -= rx
+        rx -= data[1]
+        i += 1
+    until i = rounds
+    uncall Simon_key_expansion(key, key_expanded)
+    delocal int x8 = 0
+    delocal int x2 = 0
+    delocal int x1 = 0
+    delocal int i = rounds
+    delocal int key_expanded[rounds]
+
+
+procedure main()
+    int key[4]
+    int data[2]
+    int more_data[4]
+    int num_rounds
+
+    key[0] += 0
+    key[1] += 1
+    key[2] += 2
+    key[3] += 3
+    
+    data[0] += 42
+    data[1] += 27
+    
+    more_data[0] += 42
+    more_data[1] += 27
+    more_data[2] += 42
+    more_data[3] += 27
+    
+    num_rounds += 32
+    
+    show(data)
+    call Simon_encipher(data, key, num_rounds)
+    show(data)
+    uncall Simon_encipher(data, key, num_rounds)
+    show(data)
