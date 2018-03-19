@@ -1,0 +1,313 @@
+
+\documentclass[a4paper,10pt,openright]{memoir}
+
+% Style of front page, title page, and stuff page
+\usepackage{dikuReport}
+
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage{latexsym}
+\usepackage[T1]{fontenc}
+\usepackage{cite}
+\usepackage{pdfpages}
+\usepackage{tikz}
+\usepackage{fix-cm}
+\usepackage{xcolor,calc}
+\usepackage{graphicx}
+\usepackage{amsbsy}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{alltt}
+\usepackage{float}
+\usepackage{color}
+\usepackage{relsize}
+\usepackage{calc}
+\usepackage{ifthen}
+\usepackage{xspace}
+\usepackage{todonotes}
+
+%%%%% Make abbreviations emphasized.
+\newcommand{\ie}{\emph{i.e.}\xspace}
+\newcommand{\eg}{\emph{e.g.}\xspace}
+\newcommand{\etc}{\emph{etc.}\xspace}
+\newcommand{\vs}{\emph{vs.}\xspace}
+\newcommand{\cf}{\emph{cf.}\xspace}
+\newcommand{\viz}{\emph{viz.}\xspace}
+\newcommand{\etal}{\emph{et~al.}\xspace}
+
+\newcommand{\name}[1]{\textsc{#1}}
+\newcommand{\term}[1]{\textit{#1}}
+
+% Include some layout setup.
+\input{layout.tex}
+
+% Sets page numbering layout to normal
+\normalPN
+
+% Where graphic files are located
+\graphicspath{{figures/}}
+
+% Alters the margins of the pages such that text are _not_ centered. This makes better room for the glue bindings.
+\addtolength{\foremargin}{-45pt}
+\addtolength{\spinemargin}{45pt}
+\checkandfixthelayout
+
+
+\begin{document}
+
+% Basic information
+\thesistype{MSc thesis}
+\thesiscomment{} % You can leave this blank
+\title{Lightweight Crypto in Reverse}
+\subtitle{Exploring lightweight cryptography in the context of reversible computing}
+\author{Dominik Táborský}
+\supervisor{Michael Kirkedal Thomsen, Ken Friis Larsen}
+%\date{July 7, 2018} % Hand-in date <<<------------------------<<<-----------------<<<-----------------!!!!!! FILL IN !!!!<<<-------------
+%\subject{The short description that is suitable for a database.} % This is not needed.
+
+% Make the front page, title page, and other required information.
+\pagestyle{plain}
+\maketitle
+
+% Start at page 3. I do not count the front page in the numbering.
+\cleardoublepage
+\pagenumbering{roman}
+\setcounter{page}{3}
+
+% English Abstract
+\cleardoublepage
+\pagestyle{plain}
+\begin{abstract}
+Abstract
+\end{abstract}
+
+% Danish abstract
+% \clearpage
+% \begin{resume}
+% Dansk resum\'e
+% \end{resume}
+
+% Table of contents
+\cleardoublepage
+\chapterstyle{combined}
+\tableofcontents*
+
+
+% Starting the real text.
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+
+%\cftaddnumtitleline{toc}{chapter}{Preface}{}{}%
+\cftaddnumtitleline{toc}{chapter}{Preface}{}{\arabic{page}}%
+\chapter*{Preface}
+
+Preface and acknowledgements if you like to have this.
+
+
+
+\cleardoublepage
+%\cftaddnumtitleline{toc}{chapter}{Preface}{}{}%
+\cftaddnumtitleline{toc}{chapter}{List of Abbreviations}{}{\arabic{page}}%
+\chapter*{List of Abbreviations}
+
+....
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INTRODUCTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\cleardoublepage
+
+\chapter{Introduction}
+
+%\section{Section}
+
+%\subsection{Subsection}
+
+\section{Terminology}
+
+directly reversible = an injective function
+
+%\part{}
+
+\chapter{Implementing cryptographic algorithms in reversible languages}
+
+In this chapter we show the implementation of several cryptographic 
+algorithms and discuss the advantages reversibility brings.
+
+\section{Implementations}
+
+%\section{Advantages}
+
+\section{Lack of state information leakage from data remanence}
+
+A major advantage over non-reversible languages is the required 
+clean-up of intermediate results. For an example, consider the 
+\name{Simon} (NSA) algorithm. The algorithm takes a key and some 
+plaintext as the input and is expected to produce ciphertext on the 
+output. All other temporarily allocated data should be freed 
+deallocated again. The Simon algorithm expands the key into a longer 
+string, an \term{expanded key}, which is then used for the encryption 
+itself. After the encryption is done, the intermediate expanded key is 
+supposed to be wiped and deallocated. The issue with irreversible 
+languages is that they cannot ensure the wiping of the expanded key. It 
+is perfectly legal to only deallocate the memory, which can then be 
+mapped by another process, making it readable. 
+
+Implementing the algorithm in a reversible language leads to either 
+wiping the expanded key, or leaking it by intention, \ie making it into 
+a valid output. Unless the second option is favoured for some reason, 
+we can uncall the key expansion, thus wiping the expanded key. 
+Furthermore, in the extended version of Janus this becomes even more 
+pronounced. Whatever is allocated as a local variable also has to be 
+deallocated in the same scope. Therefore, by making the expanded key 
+into a local variable, we are forced to wipe its state into a known 
+value, presumably an array of zeroes.
+
+We can observe this in the code. The expanded key is allocated at the 
+beginning of the encryption and deallocated at the end. So far this is 
+expected of any implementation, regardless of reversibility, thanks to 
+common software engineering techniques like \term{RAII}. After other 
+local variable declarations, the key expansion is performed, followed 
+by the encryption itself. Just before deallocating local variables, we 
+are forced to uncall the key expansion to get rid of the extra data. 
+Reversibility forces us to provide the final value of all local 
+variables, which, in the reverse execution, is also the initial value.
+
+\section{Duality of encryption/decryption}
+
+The second advantage is the fact decryption is the reverse of 
+encryption. There is no reason to implement decryption functions, the 
+encryption can be simply uncalled. The lack of decryption function has 
+several implications:
+
+\begin{itemize}
+
+\item less time spent writing and debugging the code itself
+
+% incorrectly different implementation of either encryption or decryption
+\item less time spent debugging caused by errorneous implementation of 
+either encryption or decryption, leading to one being not the reverse 
+of the other
+
+\item less code to maintain
+
+\item smaller library size
+
+\end{itemize}
+
+In any software project, these are valuable features.
+
+\section{Other side channels}
+
+\todo{is this section useful?}
+
+Unfortunately, due to the unavailability of real physical reversible 
+circuits, we can only speculate about other side-channel 
+vulnerabilities. One common side channel is the timing differences in 
+execution that is input-dependent. One example are bit rotations. "Bit 
+rotation by $x$ bits" can be implemented by either directly rotating by 
+$x$ bits, or by $x$ rotations by 1 bit. This difference made RC5 
+vulnerable to timing-based attack on some platforms\cite{TimingRC5}. 
+Since bit rotations are directly reversible, there is no difference in 
+comparison to irreversible implementations.
+
+A directly irreversible operation is multiplication, assuming 
+word-sized operations with modulo semantics. When implemented, it has 
+to make use of the Bennett's trick\todo{I think this is right, but I'm tired.}. This implies that it will execute 
+once to calculate the result, and once to wipe it. If it is 
+timing-variable, the difference will only get more distinct in the 
+execution time of the program.
+
+Another side-channel vulnerability is variable power consumption. 
+However, given the fact entropy stays the same throughout the 
+computation, thus no energy is wasted, energy is used only by the 
+supporting hardware. Ideally, this would imply no information can be 
+gathered about the data within the system. Power consumption analysis 
+is a viable attack against devices which the attacker has full physical 
+control over, and it is an issue to be considered when designing, \eg, 
+smart cards. Still, without actual physical implementation, this can 
+only be a speculation. \todo{this does sound too good to be that simple 
+and true}
+
+\chapter{Practical programming experience in reversible languages}
+
+\section{How to}
+\todo{bad section name}
+
+There are two general ways of implementing any algorithm in a 
+reversible language:
+\begin{enumerate}
+
+\item Implementing it directly and manually reversing anything that 
+produced intermediate data which we need to remove. This was usually 
+the case with the actual encryption, as it tends to be straightforward 
+in this case.
+
+\item If any part of that algorithm is difficult to manually reverse, 
+we can implement that part of the algorithm in its own procedure, while 
+its output is stored in locally allocated variables by its caller. 
+After the use of those values has passed, we uncall the algorithm, 
+which resets the values in those variables, allowing for deallocating 
+them. This is called the \term{Bennett's trick}.
+
+\end{enumerate}
+
+\section{Already implemented improvements}
+
+\begin{itemize}
+
+\item 
+
+\end{itemize}
+
+\section{Suggested further improvements}
+
+\begin{itemize}
+
+\item Constants that do not require explicit deallocation. Macros are fine.
+
+\item Functions with return values. These can be implemented using a 
+hidden local variable with initialization to the function call and 
+deinitialization by function uncall.
+
+\end{itemize}
+
+\chapter{Conclusion}
+
+Discussion of results.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% BIBLIOGRAPHY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\cleardoublepage
+\renewcommand{\sc}[1]{\textsc{#1}}
+\nocite{*}
+\bibliographystyle{acm}
+\bibliography{bibliography}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Appendix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\cleardoublepage
+\appendix
+
+% Updates section names to remove . (e.g. a section is named A1 instead of A.1)
+\renewcommand{\thesection}{\thechapter\arabic{section}}
+
+\chapter{The extra}
+
+
+% To make sure that the backside print of the dissertation is a white page
+\newpage ~
+\thispagestyle{empty}
+
+
+
+\end{document}

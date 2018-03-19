@@ -1,0 +1,37 @@
+%!TEX root = main.tex
+
+% NO RESETTING OF FOOTNOTES AT CHAPER CHANGE
+\usepackage{remreset}
+\makeatletter\@removefromreset{footnote}{chapter}\makeatother
+
+% Set the style of chapter heads
+
+%\definecolor{TemplateColor}{rgb}{.75,.116,.60}  % KU Red
+\definecolor{TemplateColor}{rgb}{.2941,.4549,.2359} % KU green
+
+\newcommand{\pnumb}[1]{
+    \begin{tikzpicture}
+      \draw[fill,color=gray] (0,0) rectangle (5mm,5mm);
+      \draw[color=white] (2.5mm,2.5mm) node { #1};
+    \end{tikzpicture}
+}    
+\newcommand{\printchapternumm}{}
+\makechapterstyle{combined}{
+  \setlength{\midchapskip}{-60pt}
+  \setlength{\afterchapskip}{2.5cm}
+  \renewcommand*{\printchaptername}{}
+  \renewcommand*{\chapnumfont}{\normalfont\bfseries\fontsize{45}{0}\selectfont}
+  \renewcommand*{\printchapternum}{\flushright\chapnumfont\textcolor{TemplateColor}{\thechapter}}
+  \renewcommand*{\chaptitlefont}{\normalfont\Huge\bfseries}
+  \renewcommand*{\printchaptertitle}[1]{%
+    \raggedright\chaptitlefont\parbox[t]{\textwidth-2cm}{\raggedright##1}}
+}
+
+% Normal page numbering layout. How is always looks
+\newcommand{\normalPN}{\makeevenfoot{plain}{}{\hspace{2mm}\thepage}{}\makeoddfoot{plain}{}{\thepage}{}}
+
+% Special page numbering layout that is used for papers. Numbers are written in a gray box.
+\newcommand{\specialPN}{\makeevenfoot{plain}{}{\\~\\~\\\hspace{2mm}\pnumb{\thepage}}{}\makeoddfoot{plain}{}{\\~\\~\\\pnumb{\thepage}}{}}
+
+% Only clearpage (not cleardoublepage) at new chapter.
+\renewcommand{\clearforchapter}{\clearpage}
