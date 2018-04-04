@@ -8,5 +8,6 @@ text/*.bbl
 text/*.blg
 text/*.dvi
 text/*.log
+text/*.toc
 thesis_contract.pdf
 notes.md
