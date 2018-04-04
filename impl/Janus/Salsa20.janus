@@ -1,0 +1,223 @@
+// see https://cr.yp.to/snuffle/spec.pdf
+
+procedure rotate_left(int x, int r)
+    local int rm = r % 32
+    local int temp_hi = x & (((2**rm)-1)*(2**(32-rm)))
+    local int temp_lo = x & ((2**(32-rm))-1)
+    x -= (temp_hi | temp_lo)
+    x += ((temp_hi / (2**(32-rm))) | (temp_lo * (2 ** rm)))
+    delocal int temp_lo = (x & (((2**(32-rm))-1)*(2**rm))) / (2**rm)
+    delocal int temp_hi = (x & ((2**rm)-1)) * (2 ** (32-rm))
+    delocal int rm = r % 32
+
+//procedure quarterround(int seq[4])
+	//local int tmp_rot = 0
+	//local int tmp_seq = 0
+	//// z1 = y1 ^ ((y0 + y3) <<< 7)
+	//tmp_seq += seq[1]
+	//tmp_rot += seq[0]
+	//tmp_rot += seq[3]
+	//call rotate_left(tmp_rot, 7)
+	//seq[1] ^= tmp_rot
+	//tmp_rot ^= tmp_seq // tmp_rot = z1
+	//// z2 = y2 ^ ((z1 + y0) <<< 9)
+	//tmp_rot += seq[0]
+	//call rotate_left(tmp_rot, 9)
+	//seq[2] ^= tmp_rot
+	////... I don't think this can be done. Basically, we have to clear out
+	//// tmp_rot, but to do that, we need to remember either original seq[2],
+	//// or decalculate its contents based on z1 and y0. In either case,
+	//// we will actually need to store 4 temporary variables, so we can
+	//// just use bennett's trick (in one way or another) and move on with our lives.
+	//delocal int tmp_seq = seq[]
+	//delocal int tmp_rot = 0
+
+
+procedure quarterround_bt(int in_seq[4], int out_seq[4])
+	local int tmp_rot = 0
+	// z1 = y1 ^ ((y0 + y3) <<< 7)
+	tmp_rot += in_seq[0]
+	tmp_rot += in_seq[3]
+	call rotate_left(tmp_rot, 7)
+	out_seq[1] += in_seq[1] ^ tmp_rot
+	tmp_rot ^= in_seq[1] // tmp_rot = z1
+	// z2 = y2 ^ ((z1 + y0) <<< 9)
+	tmp_rot += in_seq[0]
+	call rotate_left(tmp_rot, 9)
+	out_seq[2] += in_seq[2] ^ tmp_rot
+	tmp_rot ^= in_seq[2] // tmp_rot = z2
+	// z3 = y3 ^ ((z2 + z1) <<< 13)
+	tmp_rot += out_seq[1]
+	call rotate_left(tmp_rot, 13)
+	out_seq[3] += in_seq[3] ^ tmp_rot
+	tmp_rot ^= in_seq[3] // tmp_rot = z3
+	// z0 = y0 ^ ((z3 + z2) <<< 18)
+	tmp_rot += out_seq[2]
+	call rotate_left(tmp_rot, 18)
+	out_seq[0] += in_seq[0] ^ tmp_rot
+	tmp_rot ^= out_seq[0] ^ in_seq[0] // tmp_rot = 0
+	//tmp_rot ^= out_seq[0]  // tmp_rot = 0
+	delocal int tmp_rot = 0
+
+procedure quarterround(int seq[4])
+	local int tmp_seq[4]
+	call quarterround_bt(seq, tmp_seq)
+	seq[0] <=> tmp_seq[0]
+	seq[1] <=> tmp_seq[1]
+	seq[2] <=> tmp_seq[2]
+	seq[3] <=> tmp_seq[3]
+	uncall quarterround_bt(seq, tmp_seq) // I think this might work, but unsure
+	// turns out the above should be the second Bennett trick - uncomputing the input using the reverse of the computation on the output. [Bennett 73]
+	// Hah!
+	delocal int tmp_seq[4]
+
+procedure rowround(int seq[16])
+	local int tmp_row[4]
+	// first row
+	tmp_row[0] <=> seq[0]
+	tmp_row[1] <=> seq[1]
+	tmp_row[2] <=> seq[2]
+	tmp_row[3] <=> seq[3]
+	call quarterround(tmp_row)
+	tmp_row[0] <=> seq[0]
+	tmp_row[1] <=> seq[1]
+	tmp_row[2] <=> seq[2]
+	tmp_row[3] <=> seq[3]
+	// second row
+	tmp_row[0] <=> seq[5]
+	tmp_row[1] <=> seq[6]
+	tmp_row[2] <=> seq[7]
+	tmp_row[3] <=> seq[4]
+	call quarterround(tmp_row)
+	tmp_row[0] <=> seq[5]
+	tmp_row[1] <=> seq[6]
+	tmp_row[2] <=> seq[7]
+	tmp_row[3] <=> seq[4]
+	// third row
+	tmp_row[0] <=> seq[10]
+	tmp_row[1] <=> seq[11]
+	tmp_row[2] <=> seq[8]
+	tmp_row[3] <=> seq[9]
+	call quarterround(tmp_row)
+	tmp_row[0] <=> seq[10]
+	tmp_row[1] <=> seq[11]
+	tmp_row[2] <=> seq[8]
+	tmp_row[3] <=> seq[9]
+	// fourth row
+	tmp_row[0] <=> seq[15]
+	tmp_row[1] <=> seq[12]
+	tmp_row[2] <=> seq[13]
+	tmp_row[3] <=> seq[14]
+	call quarterround(tmp_row)
+	tmp_row[0] <=> seq[15]
+	tmp_row[1] <=> seq[12]
+	tmp_row[2] <=> seq[13]
+	tmp_row[3] <=> seq[14]
+	delocal int tmp_row[4]
+
+procedure columnround(int seq[16])
+	local int tmp_col[4]
+	// first row
+	tmp_col[0] <=> seq[0]
+	tmp_col[1] <=> seq[4]
+	tmp_col[2] <=> seq[8]
+	tmp_col[3] <=> seq[12]
+	call quarterround(tmp_col)
+	tmp_col[0] <=> seq[0]
+	tmp_col[1] <=> seq[4]
+	tmp_col[2] <=> seq[8]
+	tmp_col[3] <=> seq[12]
+	// second row
+	tmp_col[0] <=> seq[5]
+	tmp_col[1] <=> seq[9]
+	tmp_col[2] <=> seq[13]
+	tmp_col[3] <=> seq[1]
+	call quarterround(tmp_col)
+	tmp_col[0] <=> seq[5]
+	tmp_col[1] <=> seq[9]
+	tmp_col[2] <=> seq[13]
+	tmp_col[3] <=> seq[1]
+	// third row
+	tmp_col[0] <=> seq[10]
+	tmp_col[1] <=> seq[14]
+	tmp_col[2] <=> seq[2]
+	tmp_col[3] <=> seq[6]
+	call quarterround(tmp_col)
+	tmp_col[0] <=> seq[10]
+	tmp_col[1] <=> seq[14]
+	tmp_col[2] <=> seq[2]
+	tmp_col[3] <=> seq[6]
+	// fourth row
+	tmp_col[0] <=> seq[15]
+	tmp_col[1] <=> seq[3]
+	tmp_col[2] <=> seq[7]
+	tmp_col[3] <=> seq[11]
+	call quarterround(tmp_col)
+	tmp_col[0] <=> seq[15]
+	tmp_col[1] <=> seq[3]
+	tmp_col[2] <=> seq[7]
+	tmp_col[3] <=> seq[11]
+	delocal int tmp_col[4]
+
+procedure doubleround(int seq[16])
+	call columnround(se1)
+	call rowround(seq)
+
+// I don't know if this can be done without Bennett
+procedure Salsa20(int in[16], int out[16])
+	iterate int i = 0 by 1 until 16
+		out[i] += x[i]
+	end
+	iterate int i = 0 by 1 until 10
+		call doubleround(out)
+	end
+	iterate int i = 0 by 1 until 16
+		out[i] += in[i]
+	end
+
+procedure Salsa20_setup_seq(int k0[4], int k1[4], int filler[4], int n[4], int seq[16])
+	seq[0] += filler[0]
+	iterate int i = 0 by 1 until 4
+		seq[i+1] += k0[i]
+	end
+	seq[5] += filler[1]
+	iterate int i = 0 by 1 until 4
+		seq[i+6] += n[i]
+	end
+	seq[10] += filler[2]
+	iterate int i = 0 by 1 until 4
+		seq[i+11] += k1[i]
+	end
+	seq[15] += filler[3]
+
+procedure Salsa20_k32(int k0[4], int k1[4], int n[4], int out[16])
+	local int sigma[4] = {1634760805, 857760878, 2036477234, 1797285236}
+	local int seq[16]
+	call Salsa20_setup_seq(k0, k1, n, sigma, seq)
+	call Salsa20(seq, out)
+	uncall Salsa20_setup_seq(k0, k1, n, sigma, seq)
+	delocal int seq[16] 
+	delocal int sigma[4] = {1634760805, 857760878, 2036477234, 1797285236}
+
+procedure Salsa20_k16(int k0[4], int n[4], int out[16])
+	local int tau[4] = {1634760805, 824206446, 2036477238, 1797285236}
+	local int seq[16]
+	call Salsa20_setup_seq(k0, k0, n, tau, seq)
+	call Salsa20(seq, out)
+	uncall Salsa20_setup_seq(k0, k0, n, tau, seq)
+	delocal int seq[16] 
+	delocal int tau[4] = {1634760805, 824206446, 2036477238, 1797285236}
+
+// So, the two procedures above are the minimum for Salsa20 encryption. 
+// The paper splits 'n' into a 64-bit nonce and a 64-bit byte sequence 
+// number (a byte ID from 0 to 2^64-1). Maximum message length is 2^70, 
+// possibly due to some crypto-related reason.
+
+
+procedure main()
+	int seq[4] = {1, 0, 0, 0}
+	int tmp_seq[4]
+	show(seq)
+	call quarterround(seq)
+	//call quarterround_bt(seq, tmp_seq)
+	
