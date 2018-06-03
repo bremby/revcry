@@ -8,8 +8,8 @@ procedure TEA_encipher(int data[], int key[])
     local int i = 0
     from i = 0 loop
         sum += delta
-        data[0] += ((data[1] * 16) + key[0]) ^ (data[1] + sum) ^ ((data[1] / 32) + key[1])
-        data[1] += ((data[0] * 16) + key[2]) ^ (data[0] + sum) ^ ((data[0] / 32) + key[3])
+        //data[0] += ((data[1] * 16) + key[0]) ^ (data[1] + sum) ^ ((data[1] / 32) + key[1])
+        //data[1] += ((data[0] * 16) + key[2]) ^ (data[0] + sum) ^ ((data[0] / 32) + key[3])
         i += 1
     until i = 32
     delocal int i = 32
@@ -92,12 +92,12 @@ procedure main()
     show(data)
     call TEA_encipher(data, key)
     show(data)
-    uncall TEA_encipher(data, key)
-    show(data)
-    call XTEA_encipher(num_rounds, data, key)
-    show(data)
-    uncall XTEA_encipher(num_rounds, data, key)
-    show(more_data)
-    call XXTEA_encipher(more_data, key)
-    show(more_data)
-    uncall XXTEA_encipher(more_data, key)
+    //uncall TEA_encipher(data, key)
+    //show(data)
+    //call XTEA_encipher(num_rounds, data, key)
+    //show(data)
+    //uncall XTEA_encipher(num_rounds, data, key)
+    //show(more_data)
+    //call XXTEA_encipher(more_data, key)
+    //show(more_data)
+    //uncall XXTEA_encipher(more_data, key)

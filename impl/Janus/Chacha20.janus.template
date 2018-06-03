@@ -201,9 +201,9 @@ procedure main()
 	u32 k0[4] = {67305985, 134678021, 202050057, 269422093}
 	u32 k1[4] = {-859059511, -791687475, -724315439, -656943403}
 	u32 n[4] = {1751606885, 1818978921, 1886350957, 1953722993}
-	u32 test_seq[16]
 	u32 out_s[16]
 	
+	print("======================================")
 	print("Chacha20 stream buffer before initialization:")
 	show(out_s)
 	call Chacha20_k16(k0, n, out_s)
@@ -223,4 +223,4 @@ procedure main()
 	print("Chacha20 stream buffer after de-initialization:")
 	show(out_s)
 	
-	call Chacha20_setup_seq(k0, k0, n, tau, test_seq)
+	print("======================================")

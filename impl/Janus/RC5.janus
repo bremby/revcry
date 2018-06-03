@@ -1,31 +1,32 @@
 
 /* Rotate 'x' by 'r' bits to the left */
-// bug: does not work for r >=32
-procedure rotate_left(int x, int r)
-    local int temp_hi = x & (((2**r)-1)*(2**(32-r)))
-    local int temp_lo = x & ((2**(32-r))-1)
-    x -= (temp_hi | temp_lo)
-    x += ((temp_hi / (2**(32-r))) | (temp_lo * (2 ** r)))
-    delocal int temp_lo = (x & (((2**(32-r))-1)*(2**r))) / (2**r)
-    delocal int temp_hi = (x & ((2**r)-1)) * (2 ** (32-r))
-
-/* Rotate 'x' by 'r' bits to the left */
 //procedure rotate_left(int x, int r)
     //local int rm = r % 32
-    ////local int bits_hi = (2 ** rm) - 1
-    //local int bits_hi = ((2 ** rm) - 1) * (2 ** (32 - rm))
-    ////local int bits_lo = (2 ** (32 - rm)) - 1
-    //local int bits_lo = !bits_hi
-    //local int temp_hi = x & (bits_hi * (2 ** (32 - rm)))
-    //local int temp_lo = x & bits_lo
-    //x ^= (temp_hi | temp_lo) ^ ((temp_hi / (2 ** (32 - rm))) | (temp_lo * (2 ** rm)))
-    //delocal int temp_lo = (x & (bits_lo * (2 ** rm))) / (2 ** rm)
-    //delocal int temp_hi = (x & bits_hi) * (2 ** (32 - rm))
-    ////delocal int bits_lo = (2 ** (32 - rm)) - 1
-    //delocal int bits_lo = !bits_hi
-    ////delocal int bits_hi = (2 ** rm) - 1
-    //delocal int bits_hi = ((2 ** rm) - 1) * (2 ** (32 - rm))
+    //local int temp_hi = x & (((2**rm)-1)*(2**(32-rm)))
+    //local int temp_lo = x & ((2**(32-rm))-1)
+    //x -= (temp_hi | temp_lo)
+    //x += ((temp_hi / (2**(32-rm))) | (temp_lo * (2 ** rm)))
+    //delocal int temp_lo = (x & (((2**(32-rm))-1)*(2**rm))) / (2**rm)
+    //delocal int temp_hi = (x & ((2**rm)-1)) * (2 ** (32-rm))
     //delocal int rm = r % 32
+
+/* Rotate 'x' by 'r' bits to the left */
+procedure rotate_left(int x, int r)
+    local int rm = r % 32
+    local int bits_hi = (2 ** rm) - 1
+    //local int bits_hi = ((2 ** rm) - 1) * (2 ** (32 - rm))
+    local int bits_lo = (2 ** (32 - rm)) - 1
+    //local int bits_lo = ~bits_hi
+    local int temp_hi = x & (bits_hi * (2 ** (32 - rm)))
+    local int temp_lo = x & bits_lo
+    x ^= (temp_hi | temp_lo) ^ ((temp_hi / (2 ** (32 - rm))) | (temp_lo * (2 ** rm)))
+    delocal int temp_lo = (x & (bits_lo * (2 ** rm))) / (2 ** rm)
+    delocal int temp_hi = (x & bits_hi) * (2 ** (32 - rm))
+    delocal int bits_lo = (2 ** (32 - rm)) - 1
+    //delocal int bits_lo = ~bits_hi
+    delocal int bits_hi = (2 ** rm) - 1
+    //delocal int bits_hi = ((2 ** rm) - 1) * (2 ** (32 - rm))
+    delocal int rm = r % 32
 
 
 /* Set up RC5 key
@@ -84,7 +85,7 @@ procedure RC5_setup(int K[], int S[], int rounds, int L[])
         S[i] += S[i-1] + Q
         i += 1
     until i = t
-   
+    
     i -= t - 1 // i = 1
     // we are partially unrolling the loop to avoid an if-branch
     S[0] += A + B
@@ -110,23 +111,23 @@ procedure RC5_setup(int K[], int S[], int rounds, int L[])
         if k % c = 0 then
             B -= L[c-1]
         else 
-            B -= L[i-1]
+            B -= L[j-1]
         fi k % c = 0
         B += L[j]
         
         // final loop variable additions
         k += 1
-        if i + 1 = t then
+        if i = t - 1 then
             i -= (t-1)
         else
             i += 1
         fi i = 0
-        if j + 1 = c then
+        if j = c - 1 then
             j -= (c-1)
         else
             j += 1
         fi j = 0
-    until k < 3 * t
+    until k = (3 * t)
     
     delocal int Q = 2654435769 // magic constant; dependent on w, which we set to 32
     delocal int P = 3084996963 // magic constant; dependent on w, which we set to 32
@@ -141,15 +142,13 @@ procedure RC5_setup(int K[], int S[], int rounds, int L[])
     delocal int t = 2 * (r+1)
     delocal int r = rounds
     delocal int c = b / 4
-    delocal int b = size(K)
+    delocal int b = size(K) * 4
 
 // pt = plaintext, ct = ciphertext
 procedure RC5_encrypt(int pt[2], int ct[2], int key[])
     local int i = 1
     local int A = 0
     local int B = 0
-    local int A2 = 0
-    local int B2 = 0
     A += pt[0] + key[0]
     B += pt[1] + key[1]
     
@@ -164,8 +163,6 @@ procedure RC5_encrypt(int pt[2], int ct[2], int key[])
         
         i += 1
     until i > r
-    delocal int B2 = 0
-    delocal int A2 = 0
     delocal int B = 0
     delocal int A = 0
     delocal int i = 0
@@ -187,11 +184,19 @@ procedure main()
     int plaintext[2] = {42, 17}
     int ciphertext[2]
 
-    //int test_rotation = 3084996963
-    //call rotate_left(plaintext[0], 3)
+    //local int test_rotation = -1209970333
+    local int test_rotation = 1073741827
+    show(test_rotation)
+    call rotate_left(test_rotation, 35)
+    show(test_rotation)
+    //delocal int test_rotation = -1089828067
+    delocal int test_rotation = 26
+    
+    
+    
 
     //call test_rev(plaintext[0])
 
-    show(expanded_key)
+    //show(expanded_key)
     call RC5_setup(key, expanded_key, rounds, temporary_storage)
 

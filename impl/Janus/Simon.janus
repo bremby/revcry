@@ -19,24 +19,55 @@ procedure rotate_left(int x, int r)
  * z4 = 3781244162168104175
  */
 
+procedure get_tmp(int k, int m, int tmp)
+    local int tmp2 = 0
+    tmp += key_expanded[i-1]
+    uncall rotate_left(tmp, 3)
+    if m = 4 then
+        tmp ^= k[i-3]
+    fi m = 4
+    tmp2 += tmp
+    uncall rotate_left(tmp2, 1)
+    tmp ^= tmp2
+    call rotate_left(tmp2, 1)
+    delocal int tmp2 = tmp
+
+procedure get_bit(int j, int i, int bit)
+    local u32 z[5] = {0b11111010001001010110000111001101111101000100101011000011100110,
+                      0b10001110111110010011000010110101000111011111001001100001011010,
+                      0b10101111011100000011010010011000101000010001111110010110110011,
+                      0b11011011101011000110010111100000010010001010011100110100001111,
+                      0b11010001111001101011011000100000010111000011001010010011101111}
+    local u32 tmp 
+    if z[j] & (1 << (32 - i)) != 0 then
+        bit += 1
+    fi z[j] & (1 << (32 - i)) != 0
+    delocal u32 z[5] = {0b11111010001001010110000111001101111101000100101011000011100110,
+                        0b10001110111110010011000010110101000111011111001001100001011010,
+                        0b10101111011100000011010010011000101000010001111110010110110011,
+                        0b11011011101011000110010111100000010010001010011100110100001111,
+                        0b11010001111001101011011000100000010111000011001010010011101111}
+
 procedure Simon_key_expansion(int key[], int key_expanded[], int rounds)
     local int m = size(key)
     local int tmp = 0
-    local int i = m
-    key_expanded[0] += key[0]
-    key_expanded[1] += key[1]
-    key_expanded[2] += key[2] //todo: 'm' may go only up to 2
-    key_expanded[3] += key[3] //todo: 'm' may go only up to 2
+    local int i = 0
+    local int bit = 0
+    from i = 0 loop
+        key_expanded[i] += key[i]
+    until i = m
     from i = m loop
-        tmp += key_expanded[i-1]
-        uncall rotate_left(tmp, 3)
-        if m = 4 then
-            tmp ^= k[i-3]
-        fi m = 4
-        tmp ^= 
+        call get_tmp(key_expanded[i-1], m, tmp)
+        call get_bit(j, i-m % 62, bit)
+        //k[i] += ~k[i-m] ^ tmp ^ z[j][i-m % 62] ^ 3
+        k[i] += ~k[i-m] ^ tmp ^ bit ^ 3
+        uncall get_bit(j, i-m % 62, bit)
+        uncall get_tmp(key_expanded[i-1], m, tmp)
         i += 1
     until i = round
+    delocal int bit = 0
     delocal int i = rounds
+    delocal int tmp = 0
     delocal int m = size(key)
 
 // we don't want to employ Benett's trick, I think that's counterproductive in our case (for cryptoanalysis)
