@@ -1,32 +1,23 @@
 
 /* Rotate 'x' by 'r' bits to the left */
-//procedure rotate_left(int x, int r)
-    //local int rm = r % 32
-    //local int temp_hi = x & (((2**rm)-1)*(2**(32-rm)))
-    //local int temp_lo = x & ((2**(32-rm))-1)
-    //x -= (temp_hi | temp_lo)
-    //x += ((temp_hi / (2**(32-rm))) | (temp_lo * (2 ** rm)))
-    //delocal int temp_lo = (x & (((2**(32-rm))-1)*(2**rm))) / (2**rm)
-    //delocal int temp_hi = (x & ((2**rm)-1)) * (2 ** (32-rm))
-    //delocal int rm = r % 32
+procedure rotate_left_u32(u32 x, int r)
+    local int rm = r % 32
+    local int rmc = 32 - rm
+    local u32 y = (x << rm) | (x >> rmc)
+    x <=> y
+    delocal u32 y = (x >> rm) | (x << rmc)
+    delocal int rmc = 32 - rm
+    delocal int rm = r % 32
 
 /* Rotate 'x' by 'r' bits to the left */
-procedure rotate_left(int x, int r)
-    local int rm = r % 32
-    local int bits_hi = (2 ** rm) - 1
-    //local int bits_hi = ((2 ** rm) - 1) * (2 ** (32 - rm))
-    local int bits_lo = (2 ** (32 - rm)) - 1
-    //local int bits_lo = ~bits_hi
-    local int temp_hi = x & (bits_hi * (2 ** (32 - rm)))
-    local int temp_lo = x & bits_lo
-    x ^= (temp_hi | temp_lo) ^ ((temp_hi / (2 ** (32 - rm))) | (temp_lo * (2 ** rm)))
-    delocal int temp_lo = (x & (bits_lo * (2 ** rm))) / (2 ** rm)
-    delocal int temp_hi = (x & bits_hi) * (2 ** (32 - rm))
-    delocal int bits_lo = (2 ** (32 - rm)) - 1
-    //delocal int bits_lo = ~bits_hi
-    delocal int bits_hi = (2 ** rm) - 1
-    //delocal int bits_hi = ((2 ** rm) - 1) * (2 ** (32 - rm))
-    delocal int rm = r % 32
+procedure rotate_left_u32_u32(u32 x, u32 r)
+    local u32 rm = r % 32
+    local u32 rmc = 32 - rm
+    local u32 y = (x << rm) | (x >> rmc)
+    x <=> y
+    delocal u32 y = (x >> rm) | (x << rmc)
+    delocal u32 rmc = 32 - rm
+    delocal u32 rm = r % 32
 
 
 /* Set up RC5 key
@@ -40,7 +31,7 @@ procedure rotate_left(int x, int r)
  * t   = 2(r+1) - the number of round subkeys required.
  * S[] = The round subkey words.
  */
-procedure RC5_setup(int K[], int S[], int rounds, int L[])
+procedure RC5_setup(u32 K[], u32 S[], int rounds, u32 L[])
     // w = 32, r = 12, b = 16
     // c = max(1, ceil(8 * b/w))
     // t = 2 * (r+1)
@@ -52,13 +43,13 @@ procedure RC5_setup(int K[], int S[], int rounds, int L[])
     local int i = b-1
     local int j = 1
     local int k = 1
-    local int u = 4 // = w/8
-    local int A = 0
-    local int B = 0
-    //local int L[c] = {0} // the initialization is necessary, but whole array is 0-initialized
-    //local int S[t] = {0} // the initialization is necessary, but whole array is 0-initialized
-    local int P = 3084996963 // magic constant; dependent on w, which we set to 32
-    local int Q = 2654435769 // magic constant; dependent on w, which we set to 32
+    local u32 u = 4 // = w/8
+    local u32 A = 0
+    local u32 B = 0
+    //local u32 L[c] = {0} // the initialization is necessary, but whole array is 0-initialized
+    //local u32 S[t] = {0} // the initialization is necessary, but whole array is 0-initialized
+    local u32 P = 3084996963 // magic constant; dependent on w, which we set to 32
+    local u32 Q = 2654435769 // magic constant; dependent on w, which we set to 32
    
     /* The following loop is rather silly:
      * K: assumed array of bytes
@@ -89,16 +80,16 @@ procedure RC5_setup(int K[], int S[], int rounds, int L[])
     i -= t - 1 // i = 1
     // we are partially unrolling the loop to avoid an if-branch
     S[0] += A + B
-    call rotate_left(S[0], 3)
+    call rotate_left_u32(S[0], 3)
     A += S[0]
     L[0] += A
-    call rotate_left(L[0], A)
+    call rotate_left_u32_u32(L[0], A)
     B += L[0]
     //for(A = B = i = j = k = 0; k < 3 * t; k++, i = (i+1) % t, j = (j+1) % c)
     from k = 1 loop
         //A = S[i] = ROTL(S[i] + (A + B), 3);
         S[i] += A + B
-        call rotate_left(S[i], 3)
+        call rotate_left_u32(S[i], 3)
         if k % t = 0 then
             A -= S[t-1]
         else 
@@ -107,7 +98,7 @@ procedure RC5_setup(int K[], int S[], int rounds, int L[])
         A += S[i]
         //B = L[j] = ROTL(L[j] + (A + B), (A + B));
         L[j] += (A+B)
-        call rotate_left(L[j], A+B)
+        call rotate_left_u32_u32(L[j], A+B)
         if k % c = 0 then
             B -= L[c-1]
         else 
@@ -129,13 +120,13 @@ procedure RC5_setup(int K[], int S[], int rounds, int L[])
         fi j = 0
     until k = (3 * t)
     
-    delocal int Q = 2654435769 // magic constant; dependent on w, which we set to 32
-    delocal int P = 3084996963 // magic constant; dependent on w, which we set to 32
-    //delocal int S[t] = {0}
-    delocal int B = L[j-1] // WARNING: potential out of bounds access. Dunno how to fix, I might need a ternary operator ?:
-    delocal int A = S[t-1]
-    //delocal int L[c] = {0}
-    delocal int u = 4 // = w/8
+    delocal u32 Q = 2654435769 // magic constant; dependent on w, which we set to 32
+    delocal u32 P = 3084996963 // magic constant; dependent on w, which we set to 32
+    //delocal u32 S[t] = {0}
+    delocal u32 B = L[j-1] // WARNING: potential out of bounds access. Dunno how to fix, I might need a ternary operator ?:
+    delocal u32 A = S[t-1]
+    //delocal u32 L[c] = {0}
+    delocal u32 u = 4 // = w/8
     delocal int k = 3*t
     delocal int j = (3*t) % c
     delocal int i = 0
@@ -145,58 +136,63 @@ procedure RC5_setup(int K[], int S[], int rounds, int L[])
     delocal int b = size(K) * 4
 
 // pt = plaintext, ct = ciphertext
-procedure RC5_encrypt(int pt[2], int ct[2], int key[])
+procedure RC5_encrypt(u32 pt[2], u32 ct[2], u32 extkey[], int rounds)
     local int i = 1
-    local int A = 0
-    local int B = 0
-    A += pt[0] + key[0]
-    B += pt[1] + key[1]
+    local u32 A = 0
+    local u32 B = 0
+    A += pt[0] + extkey[0]
+    B += pt[1] + extkey[1]
     
     from i = 1 loop
         A ^= B
-        call rotate_left(A, B)
-        A += S[2*i]
+        call rotate_left_u32_u32(A, B)
+        A += extkey[2*i]
         
         B ^= A
-        call rotate_left(B, A)
-        B += S[2*i + 1]
+        call rotate_left_u32_u32(B, A)
+        B += extkey[2*i + 1]
         
         i += 1
-    until i > r
-    delocal int B = 0
-    delocal int A = 0
-    delocal int i = 0
-
-procedure test_rev(int x)
-    x += 1
+    until i = rounds
+    ct[0] += A
+    ct[1] += B
+    delocal u32 B = ct[1]
+    delocal u32 A = ct[0]
+    delocal int i = rounds
 
 procedure main()
-    int x1
-    int x2
-    int n
+    u32 x1
+    u32 x2
+    u32 n
 
     
     int rounds = 12
     int ek_len = 2 * (rounds + 1)
-    int key[4] = {1,2,3,4} //538976288
-    int expanded_key[ek_len]
-    int temporary_storage[300]
-    int plaintext[2] = {42, 17}
-    int ciphertext[2]
+    u32 key[4] = {1,2,3,4} //538976288
+    u32 expanded_key[ek_len]
+    u32 temporary_storage[300]
+    u32 plaintext[2] = {42, 17}
+    u32 ciphertext[2]
+
 
     //local int test_rotation = -1209970333
-    local int test_rotation = 1073741827
+    local u32 test_rotation = 1073741827
+    local u32 test_rotation2[2] = {1073741827, 0}
     show(test_rotation)
-    call rotate_left(test_rotation, 35)
+    call rotate_left_u32(test_rotation, 35)
+    call rotate_left_u32(test_rotation2[0], 35)
     show(test_rotation)
+    show(test_rotation2)
     //delocal int test_rotation = -1089828067
-    delocal int test_rotation = 26
-    
-    
-    
+    delocal u32 test_rotation2[2] = {26, 0}
+    delocal u32 test_rotation = 26
 
     //call test_rev(plaintext[0])
 
     //show(expanded_key)
     call RC5_setup(key, expanded_key, rounds, temporary_storage)
+    call RC5_encrypt(plaintext, ciphertext, expanded_key, rounds)
+    show(ciphertext)
+    uncall RC5_encrypt(plaintext, ciphertext, expanded_key, rounds)
+    uncall RC5_setup(key, expanded_key, rounds, temporary_storage)
 

@@ -1,18 +1,15 @@
 
-procedure rotate_left(int x, int r)
+/* Rotate 'x' by 'r' bits to the left */
+procedure rotate_left_u32(u32 x, int r)
     local int rm = r % 32
-    local int bits_hi = (2 ** rm) - 1
-    local int bits_lo = (2 ** (32 - rm)) - 1
-    local int temp_hi = x & (bits_hi * (2 ** (32 - rm)))
-    local int temp_lo = x & bits_lo
-    x ^= (temp_hi | temp_lo) ^ ((temp_hi / (2 ** (32 - rm))) | (temp_lo * (2 ** rm)))
-    delocal int temp_lo = (x & (bits_lo * (2 ** rm))) / (2 ** rm)
-    delocal int temp_hi = (x & bits_hi) * (2 ** (32 - rm))
-    delocal int bits_lo = (2 ** (32 - rm)) - 1
-    delocal int bits_hi = (2 ** rm) - 1
+    local int rmc = 32 - rm
+    local u32 y = (x << rm) | (x >> rmc)
+    x <=> y
+    delocal u32 y = (x >> rm) | (x << rmc)
+    delocal int rmc = 32 - rm
     delocal int rm = r % 32
 
-procedure Speck_key_secondary_sequence(int key[], int l[], int rounds)
+procedure Speck_key_secondary_sequence(u32 key[], u32 l[], int rounds)
     local int m = size(key)
     local int i = 0
     l[0] += key[1]
@@ -23,76 +20,96 @@ procedure Speck_key_secondary_sequence(int key[], int l[], int rounds)
         fi m > 3
     fi m > 2
     from i = 0 loop
-        uncall rotate_left(l[i], 8)
-        l[i+m-1] += (key[i] + l[i]) ^ i
-        call rotate_left(l[i], 8)
+        uncall rotate_left_u32(l[i], 8)
+        l[i+m-1] += (key[i] + l[i]) ^ (u32) i
+        call rotate_left_u32(l[i], 8)
+        i += 1
     until i = (rounds - 1)
     delocal int i = (rounds - 1)
     delocal int m = size(key)
 
-procedure round(int x, int y, int k)
+procedure round(u32 x, u32 y, u32 k)
     // (S^-8 x, y)
-    uncall rotate_left(x, 8)
+    uncall rotate_left_u32(x, 8)
     // (S^-8 x + y, y)
     x += y
     // ((S^-8 x + y) ^ k, y)
     x ^= k
     // ((S^-8 x + y) ^ k, S^3 y)
-    call rotate_left(y, 3)
+    call rotate_left_u32(y, 3)
     // ((S^-8 x + y) ^ k, S^3 y ^ (S^-8 x + y) ^ k)
     y ^= x
 
-procedure Speck_key_expansion(int key[], int key_expanded[], int rounds)
+procedure Speck_key_expansion(u32 key[], u32 key_expanded[], int rounds)
     local int m = size(key)
-    local int i = 0
-    local int l[m+rounds]
+    local u32 i = 0
+    local u32 l[m+rounds]
     key_expanded[0] += key[0]
     call Speck_key_secondary_sequence(key, l, rounds)
     from i = 0 loop
         //todo: this with the secondary sequence generation can be replaced with a generic round function, the same as in encryption
-        call round(l[i+m-1], key[i+1], i)
-        //uncall rotate_left(key_expanded[i], 3)
-        //key_expanded[i+1] += key_expanded[i] ^ l[i+m-1]
-        //call rotate_left(key_expanded[i], 3)
+        // -- actually, no. Because 1) l and key_expanded would have to coexist and 2) see the 2nd version for the real reason.
+        call rotate_left_u32(key_expanded[i], 3)
+        key_expanded[i+1] += key_expanded[i] ^ l[i+m-1]
+        uncall rotate_left_u32(key_expanded[i], 3)
         i += 1
     until i = (rounds - 1)
     uncall Speck_key_secondary_sequence(key, l, rounds)
-    delocal int l[m+rounds]
-    delocal int i = 0
+    delocal u32 l[m+rounds]
+    delocal u32 i = (rounds - 1)
+    delocal int m = size(key)
+
+// NOT FUNCTIONAL
+procedure Speck_key_expansion2(u32 key[], u32 key_expanded[], u32 l_sequence[], int rounds)
+    local int m = size(key)
+    key_expanded[0] += key[0]
+    l_sequence[0] += key[1]
+    if m > 2 then
+        l_sequence[1] += key[2]
+        if m > 3 then
+            l_sequence[2] += key[3]
+        fi m > 3
+    fi m > 2
+    iterate int i = 0 by 1 to (rounds - 2)
+        // can't be done like this, we need to specify that we're reading from k[i] and writing to k[i+1]
+        call round(l_sequence[i+m-1], key_expanded[i+1], (u32) i)
+    end
     delocal int m = size(key)
     
 
 // we don't want to employ Benett's trick, I think that's counterproductive in our case (for cryptoanalysis)
 //procedure Simon_round(int S1, int S2, int S8, 
 
-procedure Speck_encipher(int data[2], int key[], int rounds)
-    local int key_expanded[rounds]
-	local int i = 0
-    call Speck_key_expansion(key, key_expanded, rounds)
-    from i = 0 loop
+procedure Speck_encipher(u32 data[2], u32 key[], int rounds)
+    local int m = size(key)
+    local u32 key_expanded[rounds]
+    local u32 l_sequence[m+rounds]
+    call Speck_key_expansion2(key, key_expanded, l_sequence, rounds)
+    iterate int i = 0 by 1 to (rounds - 1)
         //todo: this can be replaced with a generic round function, the same as in key expansion
-        call round(data[0], data[1], key_expanded[i]) //done?
+        // -- is it done?
+        call round(data[0], data[1], key_expanded[i])
         //// (S^-8 x, y)
-        //uncall rotate_left(data[0], 8)
+        //uncall rotate_left_u32(data[0], 8)
         //// (S^-8 x + y, y)
         //data[0] += data[1]
         //// ((S^-8 x + y) ^ k, y)
         //data[0] ^= key_expanded[i]
         //// ((S^-8 x + y) ^ k, S^3 y)
-        //call rotate_left(data[1], 3)
+        //call rotate_left_u32(data[1], 3)
         //// ((S^-8 x + y) ^ k, S^3 y ^ (S^-8 x + y) ^ k)
         //data[1] ^= data[0]
-        i += 1
-    until i = rounds
-    uncall Speck_key_expansion(key, key_expanded)
-    delocal int i = rounds
-    delocal int key_expanded[rounds]
+    end
+    uncall Speck_key_expansion2(key, key_expanded, l_sequence, rounds)
+    delocal u32 l_sequence[m+rounds]
+    delocal u32 key_expanded[rounds]
+    delocal int m = size(key)
 
 
 procedure main()
-    int key[4]
-    int data[2]
-    int more_data[4]
+    u32 key[4]
+    u32 data[2]
+    u32 more_data[4]
     int num_rounds
 
     key[0] += 0
