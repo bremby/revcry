@@ -48,3 +48,161 @@ archivePrefix = "arXiv",
     isbn="978-3-540-48892-7"
 }
 
+@inproceedings{Chow:2004,
+ author = {Chow, Jim and Pfaff, Ben and Garfinkel, Tal and Christopher, Kevin and Rosenblum, Mendel},
+ title = {Understanding Data Lifetime via Whole System Simulation},
+ booktitle = {Proceedings of the 13th Conference on USENIX Security Symposium - Volume 13},
+ series = {SSYM'04},
+ year = {2004},
+ location = {San Diego, CA},
+ pages = {22--22},
+ numpages = {1},
+ url = {http://dl.acm.org/citation.cfm?id=1251375.1251397},
+ acmid = {1251397},
+ publisher = {USENIX Association},
+ address = {Berkeley, CA, USA},
+} 
+
+@article{Spreitzer:2016,
+  author    = {Raphael Spreitzer and
+               Veelasha Moonsamy and
+               Thomas Korak and
+               Stefan Mangard},
+  title     = {SoK: Systematic Classification of Side-Channel Attacks on Mobile Devices},
+  journal   = {CoRR},
+  volume    = {abs/1611.03748},
+  year      = {2016},
+  url       = {http://arxiv.org/abs/1611.03748},
+  archivePrefix = {arXiv},
+  eprint    = {1611.03748},
+  timestamp = {Wed, 07 Jun 2017 14:42:55 +0200},
+  biburl    = {https://dblp.org/rec/bib/journals/corr/SpreitzerMKM16},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@article{ProtzenkoEtal:2017,
+ author = {Protzenko, Jonathan and Zinzindohou{\'e}, Jean-Karim and Rastogi, Aseem and Ramananandro, Tahina and Wang, Peng and Zanella-B{\'e}guelin, Santiago and Delignat-Lavaud, Antoine and Hri\c{t}cu, C\u{a}t\u{a}lin and Bhargavan, Karthikeyan and Fournet, C{\'e}dric and Swamy, Nikhil},
+ title = {Verified Low-level Programming Embedded in {F}*},
+ journal = {Proceedings of the {ACM} on Programming Languages},
+ volume = {1},
+ number = {ICFP},
+ year = {2017},
+ pages = {17:1--17:29},
+ doi = {10.1145/3110261},
+ publisher = {ACM}
+}
+
+@inproceedings{BondEtal:2017:Vale,
+  author = {Bond, Barry and Hawblitzel, Chris and Kapritsos, Manos and Leino, K. Rustan M. and Lorch, Jacob R. and Parno, Bryan and Rane, Ashay and Setty, Srinath and Thompson, Laure},
+  booktitle = {Proceedings of the 26th {USENIX} Security Symposium},
+  title = {{Vale}: Verifying High-Performance Cryptographic Assembly Code},
+  pages = {917--934},
+  year = {2017}
+}
+
+@inproceedings{whatyouc:2018,
+  author    = {Laurent Simon and David Chisnall and Ross Anderson},
+  title     = {{What you get is what you C: Controlling side effects in mainstream C compilers}},
+  booktitle = {3rd IEEE European Symposium on Security and Privacy (EuroS\&P)},
+  year      = {2018},
+}
+
+@book{Jones93,
+  author = {Jones, Neil and K. Gomard, Carsten and Sestoft, Peter},
+  year = {1993},
+  month = {01},
+  pages = {},
+  title = {Partial Evaluation and Automatic Program Generation},
+  isbn = {0-13-020249-5}
+}
+
+@article{Bennett73,
+  author = {H. Bennett, Ch},
+  year = {1973},
+  month = {12},
+  pages = {525 - 532},
+  title = {Logical Reversibility of Computation},
+  volume = {17},
+  booktitle = {IBM Journal of Research and Development}
+}
+
+@article{Yokoyama2010,
+title = "Reversible Computation and Reversible Programming Languages",
+journal = "Electronic Notes in Theoretical Computer Science",
+volume = "253",
+number = "6",
+pages = "71 - 81",
+year = "2010",
+note = "Proceedings of the Workshop on Reversible Computation (RC 2009)",
+issn = "1571-0661",
+doi = "https://doi.org/10.1016/j.entcs.2010.02.007",
+url = "http://www.sciencedirect.com/science/article/pii/S1571066110000204",
+author = "Tetsuo Yokoyama",
+keywords = "Reversible computing, Reversible programming languages"
+}
+
+@article{Low*,
+  author    = {Karthikeyan Bhargavan and
+               Antoine Delignat{-}Lavaud and
+               C{\'{e}}dric Fournet and
+               Catalin Hritcu and
+               Jonathan Protzenko and
+               Tahina Ramananandro and
+               Aseem Rastogi and
+               Nikhil Swamy and
+               Peng Wang and
+               Santiago Zanella B{\'{e}}guelin and
+               Jean Karim Zinzindohou{\'{e}}},
+  title     = {Verified Low-Level Programming Embedded in {F}},
+  journal   = {CoRR},
+  volume    = {abs/1703.00053},
+  year      = {2017},
+  url       = {http://arxiv.org/abs/1703.00053},
+  archivePrefix = {arXiv},
+  eprint    = {1703.00053},
+  timestamp = {Wed, 07 Jun 2017 14:43:00 +0200},
+  biburl    = {https://dblp.org/rec/bib/journals/corr/BhargavanDFHPRR17},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@proceedings{vale2017,
+  author = {Bond, Barry and Hawblitzel, Chris and Kapritsos, Manos and Leino, Rustan and Lorch, Jay and Parno, Bryan and Rane, Ashay and Setty, Srinath and Thompson, Laure},
+  title = {Vale: Verifying High-Performance Cryptographic Assembly Code},
+  booktitle = {Proceedings of the USENIX Security Symposium},
+  year = {2017},
+  month = {August},
+  abstract = {High-performance cryptographic code often relies on complex hand-tuned assembly language that is customized for individual hardware platforms. Such code is difficult to understand or analyze. We introduce a new programming language and tool called Vale that supports flexible, automated verification of high-performance assembly code. The Vale tool transforms annotated assembly language into an abstract syntax tree (AST), while also generating proofs about the AST that are verified via an SMT solver. Since the AST is a first-class proof term, it can be further analyzed and manipulated by proven-correct code before being extracted into standard assembly. For example, we have developed a novel, proven-correct taint-analysis engine that verifies the code's freedom from digital side channels. Using these tools, we verify the correctness, safety, and security of implementations of SHA-256 on x86 and ARM, Poly1305 on x64, and hardware-accelerated AES-CBC on x86. Several implementations meet or beat the performance of unverified, state-of-the-art cryptographic libraries.},
+  publisher = {USENIX},
+  url = {https://www.microsoft.com/en-us/research/publication/vale-verifying-high-performance-cryptographic-assembly-code/},
+  address = {},
+  pages = {},
+  journal = {},
+  volume = {},
+  chapter = {},
+  isbn = {},
+}
+
+@article{tea95,
+  author = {Wheeler, David and Needham, Roger},
+  year = {1995},
+  month = {04},
+  pages = {},
+  title = {TEA: a Tiny Encryption Algorithm}
+}
+
+@article{sym-asym,
+  url = {https://stackoverflow.com/a/118481},
+  title = {Speed comparison between symmetric and asymmetric encryption}
+}
+
+@MISC{salsa20,
+    author = {Daniel J. Bernstein},
+    title = {Salsa20 specication},
+    year = {}
+}
+
+@MISC{chacha,
+    author = {Daniel J. Bernstein},
+    title = {ChaCha, a variant of Salsa20},
+    year = {}
+}

@@ -7,66 +7,76 @@ procedure rotate_left_u32(u32 x, int r)
     delocal u32 y = (x >> rm) | (x << (32 - rm))
     delocal u32 rm = r % 32
 
-//procedure quarterround(int seq[4])
-	//local int tmp_rot = 0
-	//local int tmp_seq = 0
-	//// z1 = y1 ^ ((y0 + y3) <<< 7)
-	//tmp_seq += seq[1]
-	//tmp_rot += seq[0]
-	//tmp_rot += seq[3]
-	//call rotate_left_u32(tmp_rot, 7)
-	//seq[1] ^= tmp_rot
-	//tmp_rot ^= tmp_seq // tmp_rot = z1
-	//// z2 = y2 ^ ((z1 + y0) <<< 9)
-	//tmp_rot += seq[0]
-	//call rotate_left_u32(tmp_rot, 9)
-	//seq[2] ^= tmp_rot
-	////... I don't think this can be done. Basically, we have to clear out
-	//// tmp_rot, but to do that, we need to remember either original seq[2],
-	//// or decalculate its contents based on z1 and y0. In either case,
-	//// we will actually need to store 4 temporary variables, so we can
-	//// just use bennett's trick (in one way or another) and move on with our lives.
-	//delocal int tmp_seq = seq[]
-	//delocal int tmp_rot = 0
-
-
-procedure quarterround_bt(u32 in_seq[4], u32 out_seq[4])
-	local u32 tmp_rot = 0
+//procedure quarterround(u32 seq[4])
+	local u32 tmp = 0
 	// z1 = y1 ^ ((y0 + y3) <<< 7)
-	tmp_rot += in_seq[0]
-	tmp_rot += in_seq[3]
-	call rotate_left_u32(tmp_rot, 7)
-	out_seq[1] += in_seq[1] ^ tmp_rot
-	tmp_rot ^= in_seq[1] // tmp_rot = z1
+  tmp += seq[0] + seq[3]
+  call rotate_left_u32(tmp, 7)
+  seq[1] ^= tmp
+  uncall rotate_left_u32(tmp, 7)
+  tmp -= (seq[0] + seq[3])
+	
 	// z2 = y2 ^ ((z1 + y0) <<< 9)
-	tmp_rot += in_seq[0]
-	call rotate_left_u32(tmp_rot, 9)
-	out_seq[2] += in_seq[2] ^ tmp_rot
-	tmp_rot ^= in_seq[2] // tmp_rot = z2
-	// z3 = y3 ^ ((z2 + z1) <<< 13)
-	tmp_rot += out_seq[1]
-	call rotate_left_u32(tmp_rot, 13)
-	out_seq[3] += in_seq[3] ^ tmp_rot
-	tmp_rot ^= in_seq[3] // tmp_rot = z3
-	// z0 = y0 ^ ((z3 + z2) <<< 18)
-	tmp_rot += out_seq[2]
-	call rotate_left_u32(tmp_rot, 18)
-	out_seq[0] += in_seq[0] ^ tmp_rot
-	tmp_rot ^= out_seq[0] ^ in_seq[0] // tmp_rot = 0
-	//tmp_rot ^= out_seq[0]  // tmp_rot = 0
-	delocal u32 tmp_rot = 0
+	tmp += seq[1] + seq[0]
+	call rotate_left_u32(tmp, 9)
+	seq[2] ^= tmp
+	uncall rotate_left_u32(tmp, 9)
+	tmp -= (seq[1] + seq[0])
+  
+  // z3 = z3 ^ ((z2 + z1) <<< 13)
+  tmp += seq[2] + seq[1]
+	call rotate_left_u32(tmp, 13)
+	seq[3] ^= tmp
+	uncall rotate_left_u32(tmp, 13)
+	tmp -= (seq[2] + seq[1])
+  
+  // z0 = z0 ^ ((z3 + z2) <<< 18)
+  tmp += seq[3] + seq[2]
+	call rotate_left_u32(tmp, 18)
+	seq[0] ^= tmp
+	uncall rotate_left_u32(tmp, 18)
+	tmp -= (seq[3] + seq[2])
+  
+	delocal int tmp = 0
 
-procedure quarterround(u32 seq[4])
-	local u32 tmp_seq[4]
-	call quarterround_bt(seq, tmp_seq)
-	seq[0] <=> tmp_seq[0]
-	seq[1] <=> tmp_seq[1]
-	seq[2] <=> tmp_seq[2]
-	seq[3] <=> tmp_seq[3]
-	uncall quarterround_bt(seq, tmp_seq) // I think this might work, but unsure
-	// turns out the above should be the second Bennett trick - uncomputing the input using the reverse of the computation on the output. [Bennett 73]
-	// Hah!
-	delocal u32 tmp_seq[4]
+
+//procedure quarterround_bt(u32 in_seq[4], u32 out_seq[4])
+	//local u32 tmp_rot = 0
+	//// z1 = y1 ^ ((y0 + y3) <<< 7)
+	//tmp_rot += in_seq[0]
+	//tmp_rot += in_seq[3]
+	//call rotate_left_u32(tmp_rot, 7)
+	//out_seq[1] += in_seq[1] ^ tmp_rot
+	//tmp_rot ^= in_seq[1] // tmp_rot = z1
+	//// z2 = y2 ^ ((z1 + y0) <<< 9)
+	//tmp_rot += in_seq[0]
+	//call rotate_left_u32(tmp_rot, 9)
+	//out_seq[2] += in_seq[2] ^ tmp_rot
+	//tmp_rot ^= in_seq[2] // tmp_rot = z2
+	//// z3 = y3 ^ ((z2 + z1) <<< 13)
+	//tmp_rot += out_seq[1]
+	//call rotate_left_u32(tmp_rot, 13)
+	//out_seq[3] += in_seq[3] ^ tmp_rot
+	//tmp_rot ^= in_seq[3] // tmp_rot = z3
+	//// z0 = y0 ^ ((z3 + z2) <<< 18)
+	//tmp_rot += out_seq[2]
+	//call rotate_left_u32(tmp_rot, 18)
+	//out_seq[0] += in_seq[0] ^ tmp_rot
+	//tmp_rot ^= out_seq[0] ^ in_seq[0] // tmp_rot = 0
+	////tmp_rot ^= out_seq[0]  // tmp_rot = 0
+	//delocal u32 tmp_rot = 0
+
+//procedure quarterround(u32 seq[4])
+	//local u32 tmp_seq[4]
+	//call quarterround_bt(seq, tmp_seq)
+	//seq[0] <=> tmp_seq[0]
+	//seq[1] <=> tmp_seq[1]
+	//seq[2] <=> tmp_seq[2]
+	//seq[3] <=> tmp_seq[3]
+	//uncall quarterround_bt(seq, tmp_seq) // I think this might work, but unsure
+	//// turns out the above should be the second Bennett trick - uncomputing the input using the reverse of the computation on the output. [Bennett 73]
+	//// Hah!
+	//delocal u32 tmp_seq[4]
 
 procedure rowround(u32 seq[16])
 	local u32 tmp_row[4]

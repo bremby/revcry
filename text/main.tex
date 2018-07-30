@@ -25,7 +25,30 @@
 \usepackage{calc}
 \usepackage{ifthen}
 \usepackage{xspace}
+\usepackage{listings}
 \usepackage{todonotes}
+% Janus listings
+\usepackage{lstjanus}
+
+\lstset{language=C,
+        basicstyle=\footnotesize\ttfamily,
+        keywordstyle=\bfseries\color{blue},
+        stringstyle=\color{green}\ttfamily,
+        commentstyle=\color{red}\ttfamily,
+        %morecomment=[l][\color{magenta}]{\#}
+        columns=flexible,
+        keepspaces=true
+}
+
+\lstset{language=Python,
+        basicstyle=\footnotesize\ttfamily,
+        keywordstyle=\bfseries\color{blue},
+        stringstyle=\color{green}\ttfamily,
+        commentstyle=\color{red}\ttfamily,
+        %morecomment=[l][\color{magenta}]{\#}
+        columns=flexible,
+        keepspaces=true
+}
 
 %%%%% Make abbreviations emphasized.
 \newcommand{\ie}{\emph{i.e.}\xspace}
@@ -43,6 +66,7 @@
 
 \newcommand{\name}[1]{\textsc{#1}}
 \newcommand{\term}[1]{\textit{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
 
 % Include some layout setup.
 \input{layout.tex}
@@ -133,22 +157,22 @@ Preface and acknowledgements if you like to have this.
 
 Cryptography in general has been with us for decades now, yet only 
 recently we finally figured out how to reliably code and verify an 
-actual implementation with the F*/HACL work \cite{HACL}. A similar 
-approach takes the Vale project \cite{Vale}, designing a new language 
-that utilizes either Dafny or F* for verification. These solutions 
-verify not only the correctness of the code, but also prove the lack of 
-state-based information leakage, and in the case of Vale, even 
-timing-based leakage. These two are possibly the easiest side-channel 
-vulnerabilities to exploit, especially given the fact that physical 
-access to the computer is not necessary. Both of them can get difficult 
-to control for since the compiler often provides no guarantees on the 
-generated machine code. Similarly, programming languages do not provide 
-semantics on low enough level to account for registers, caches and 
-execution timing. Vale provides for these, which allows it to formally 
-verify the cryptographic properties; on the other hand, it also makes 
-the language difficult to learn and use due to the sheer breadth of 
-details the programmer now has to consider, instead of leaving it to 
-the compiler.
+actual implementation with the F*/HACL work \cite{ProtzenkoEtal:2017}. 
+A similar approach takes the Vale project \cite{BondEtal:2017:Vale}, 
+designing a new language that utilizes either Dafny or F* for 
+verification. These solutions verify not only the correctness of the 
+code, but also prove the lack of state-based information leakage, and 
+in the case of Vale, even timing-based leakage. These two are possibly 
+the easiest side-channel vulnerabilities to exploit, especially given 
+the fact that physical access to the computer is not necessary. Both of 
+them can get difficult to control for since the compiler often provides 
+no guarantees on the generated machine code. Similarly, programming 
+languages do not provide semantics on low enough level to account for 
+registers, caches and execution timing. Vale provides for these, which 
+allows it to formally verify the cryptographic properties; on the other 
+hand, it also makes the language difficult to learn and use due to the 
+sheer breadth of details the programmer now has to consider, instead of 
+leaving it to the compiler.
 
 Our work aims for exploiting reversible computing to reason about 
 state-based leakage. Informally, a reversible program has to follow a 
@@ -192,6 +216,9 @@ no guarantees on avoiding timing vulnerabilities like Vale does,
 however it comes at a much lower cost of development.
 
 
+
+
+???
 
 The reason for 
 vulnerabilities based on the implementation and not the mathematical 
@@ -244,10 +271,11 @@ for decryption (a \term{private key}). Its security relies on some hard
 mathematical problems like integer factorization in the case of RSA. If 
 that could somehow be performed as fast as the factor multiplication, 
 it would render the whole algorithm broken. It does not achieve the 
-same levels of performance \todo{citation needed}. For that reason it 
-is not considered lightweight. It can, however, be used for so-called 
-hybrid encryption schemes, where PKI is used to exchange the secret key 
-for some symmetric algorithm.
+same levels of performance \cite{sym-asym}\todo{is StackOoverflow 
+citation sufficient?}. For that reason it is not considered 
+lightweight. It can, however, be used for so-called hybrid encryption 
+schemes, where PKI is used to exchange the secret key for some 
+symmetric algorithm.
 
 \subsection{Definition}
 
@@ -276,37 +304,171 @@ all necessary information to decrypt the ciphertext back using
 $\dec_S$. That is not the case with $\enc_A$: having access to 
 $(k_\text{public},c)$ does not suffice for decryption, since we are 
 missing the private key $k_\text{private}$. This is an important 
-distinction that we will explore later in \ref{asym_rev}. In short, the 
-implication is that the definition of $\enc_A$ is not as complete as 
-$\enc_S$.
+distinction that we will explore later in \ref{sec:asym_rev}. In short, 
+the implication is that the definition of $\enc_A$ is not as complete 
+as $\enc_S$.
 
-\section{Side-channel vulnerabilities in cryptographic code}
+\section{Vulnerabilities in cryptographic code}
 
 The mathematical basis upon which cryptographic algorithms are built is 
 only one half of the story when it comes to evaluating data security. 
 The other half are their implementations, which have a long history of 
-hidden vulnerabilities in various forms. These are called 
-\term{side-channel vulnerabilities}, \term{side-channel information 
-leakages} or just \term{side-channels} for short. These are classified 
-into several groups depending on the type of the attack. The easiest 
-(in terms of required prerequisites) are state-based and timing-based 
-leakages, since they can be performed remotely and do not require any 
-specialized hardware. Some other side-channels are power consumption 
-and electromagnetic radiation analyses.
+hidden vulnerabilities in various forms. These are often split into two 
+groups: incorrect implementation (software bugs, state-based leakages) 
+and so-called \term{side-channel vulnerabilities}, \term{side-channel 
+information leakages} or just \term{side-channels} for short. The first 
+group consists of attacks on weaknesses in the software implementation, 
+mostly state information leakage via registers and/or memory, \ie not 
+clearing memory containing sensitive data \cite{Chow:2004}. The second 
+group is classified into several subgroups depending on the type of the 
+attack, \eg power consumption and electromagnetic radiation analyses 
+\cite{Spreitzer:2016}. A timing-based attack exploits different running 
+times of the algorithm depending on its inputs. Arguably, this kind of 
+attack could be classified as both a software bug, since it can be 
+often circumvented in code, but the source of the problem often lies 
+within the processor itself (instructions themselves being 
+timing-sensitive based on input \cite{TimingRC5}).
 
-\todo{examples?}
+The easiest (in terms of required prerequisites) are state-based and 
+timing-based leakages, since they can be performed remotely and do not 
+require any specialized hardware. Because of that, they tend to be the 
+focus of contemporary research in the area 
+\cite{BondEtal:2017:Vale}\cite{whatyouc:2018}.
+
+\subsection{Examples}
+
+The common issue with state-based information leakage is that either 
+the programmer does not clear the memory that contains the sensitive 
+data (\eg a password) and simply deallocates it, or that they do clear 
+it in the code, but the compiler removes that code because it is 
+considered a dead (ineffective) code.
+
+\begin{lstlisting}
+int login()
+{
+  int ret = 0;
+  char *password = ask_for_password();
+  //ret = ... use the password
+  memset(password, 0, strlen(password));
+  return ret;
+}
+\end{lstlisting}
+
+In the above example, the memory pointed to by the \code{password} 
+variable is supposed to be cleared out using the \code{memset} 
+function, but since the memory is not being used anymore, optimizing 
+compilers remove that call completely\cite{whatyouc:2018}.
+
+An example of a timing vulnerability is in the case of the RC5 
+algorithm \cite{TimingRC5}, which uses bitwise rotation, where the 
+number of bits rotated depends on the input data. The vulnerability 
+exists only on some platforms, which differ from the others in the 
+implementation of the rotation instruction. The rotation can be 
+performed in two ways: 
+\begin{enumerate}
+\item perform one rotation by $n$ bits,
+\item perform $n$ rotations by 1 bit.
+\end{enumerate}
+This minor change can have drastic effects on security.
+
+\subsection{Avoidance}
+
 \todo{how to defend against them?}
 
 \section{Reversibility and its implications}
 
 \todo{intro}
 
-\subsection{Definition}
+\subsection{Definitions}
+
+Consider a program $p$ and some values $x$ and $y$. Then $\exe{p}(x) = 
+(y)$ represents\footnote{Here we are using the notation from 
+\cite{Jones93}.} the execution of program $p$ with $x$ as a given 
+parameter and $y$ being the result. So in the case of encryption we have:
+
+$$
+\exe{\enc}(k,p) = (k,c) \,.
+$$
+
+Note that before $\enc$ represented a function in a mathematical sense, 
+but in this case it is a program composed of some instructions. The 
+$\exe{\cdot}$ operator stands for the forward interpretation of the 
+given program. For backward interpretation we use the inversion 
+operator $\inv{\cdot}$, which takes a program and inverts it, so that 
+$\exe{\inv{\cdot}}$ runs the given program backwards. Now we clearly 
+get that:
+
+$$
+\exe{\inv{p}}(\exe{p}(x)) = x \,.
+$$
+
+
+\subsection{Cryptography as a reversible embedding}
+\label{crypto-embed}
+
+Some cryptographic functions are partial functions, but we can always 
+limit their domains to valid inputs. We will also assume these 
+functions are injective. Altogether, we can assume to work with 
+bijective functions. With this assumption, we can already make one 
+interesting observation:
+
+\begin{align*}
+\exe{\enc}(k,p) &= (k,c) \\
+\exe{\dec}(k,c) &= \exe{\inv(\enc)}(k,c) = (k,p) \,.
+\end{align*}
+
+The implication of that is that we can avoid implementing the 
+decryption functions after having implemented the encryption ones (and 
+vice-versa). In practical experience, this fact is easily observable 
+and immensely useful. It has several advantages:
+
+\begin{enumerate}
+\item time saved on implementing the inverse function,
+\item time saved on debugging it and making sure it actually is the correct inverse
+\item easier maintenance and changes
+\item smaller source files (and potentially even binary files)
+\end{enumerate}
+
+We can see examples in the code developed alongside this thesis; no 
+algorithm required separate encryption/decryption functions.
 
 \subsection{Expressive power}
+\label{sec:expr-power}
+
+Bennett has formalized \cite{Bennett73} a reversible Turing machine 
+using deterministic and reversible operations. Quite clearly the 
+expressive power of the reversible Turing machine is not larger than of 
+the irreversible one; irreversibility allows for information erasure, 
+it does not require it. Similarly, the power is not smaller. This can 
+be shown by having the irreversible machine keep a log of its 
+operations and intermediate values, run its algorithm to finish to 
+compute the output, copy the output and then run all its operations 
+backwards using the log. The complete proof was also shown by Bennett 
+\cite{Bennett73}. Below is a simple example for addition:
+
+\todo{the example is bad. it's just like janus instead of taking pure irreversible language and adding a log}
+
+\begin{lstlisting}[language=c]
+  state: x = 3, y = 5, output = 0, output_copy = 0  // initial state
+  output += (x + y)                                 // original algorithm
+  state: x = 3, y = 5, output = 0, output_copy = 0  // output state
+\end{lstlisting}
+
+\begin{lstlisting}[language=c]
+  state: x = 3, y = 5, output = 0, output_copy = 0  // initial state
+  output += (x + y)                                 // original algorithm
+  state: x = 3, y = 5, output = 8, output_copy = 0  // forward run finished
+  output_copy += output                             // copy result to a safe location
+  state: x = 3, y = 5, output = 8, output_copy = 8  // copy saved
+  output -= (x + y)                                 // run original algorithm backwards
+  state: x = 3, y = 5, output = 0, output_copy = 8  // final state with initial input values, the correct result and no intermediate values (empty log)
+\end{lstlisting}
+
+
+
 
 \subsection{Reversing asymmetric cryptography}
-\label{asym_rev}
+\label{sec:asym_rev}
 
 When we formally defined functions $\enc_S$ and $\enc_A$, we noticed 
 the distinction in what information they give as a result. After 
@@ -345,16 +507,123 @@ of this thesis and the details are not important for us here.
 
 \subsection{Data transformation}
 
+Going back to section \ref{crypto-embed}, the second mentioned 
+advantage of the duality of encryption and decryption functions, and 
+similarly with other bijective functions that can be reversed like 
+this, should not be underestimated. The world of programming languages 
+is constantly trying to improve to make the job easier for programmers. 
+Just like some languages are more useful (or at least more common) in 
+certain fields (\eg C for low-level systems, Haskell for parsing, pure 
+computer science and language development, C++ for performance-hungry 
+video games and Java for enterprise applications), reversible languages 
+could create a new such field. Algorithms that perform some kind of 
+data transformation - mathematically bijective or at least injective 
+function application - would be a good fit. The reversibility would 
+then assist with error recovery, for example; it could prove useful in 
+transactional systems, which require the ability to roll back aborted 
+transactions.
+
 \subsection{Bennett's tricks}
+
+In section \ref{sec:expr-power} we have already seen the first trick 
+for converting irreversible programs into reversible ones. The trick is 
+fairly simple: to get a result of any function that may create and 
+destroy any number of bits of information, simply provide temporary 
+storage for those bits, run the function without erasing anything until 
+completion, copy out the result and finally run the function backwards, 
+uncomputing the temporary values in the process. This trick was used 
+several times in the cryptographic code developed for this thesis. The 
+\term{Speck} algorithm is a good example of that, as it requires to 
+perform a fairly complicated key expansion process. There are a few 
+other places where this trick was used, but always only in cases where 
+making a more direct reversible code - that would be equivalent to the 
+originally intended meaning - was either impossible or too difficult.
+
+There also exists a second trick that is not immediately obvious. Having 
+a reversible program $p$ and some input $x$ and corresponding output $y$, the 
+following holds:
+
+\begin{align*}
+\exe{p}(x) = y
+\exe{\inv{p}}(y) = x
+\end{align*}
+
+This is just the definition of reversibility. However, the trick is in 
+how this is used: suppose the reversible program $p$ computes its input 
+into output without loss of information. We can store $x$ and $y$ at 
+different memory locations, so that the information within $x$ is 
+duplicated in $y$. If $x$ is not needed anymore, we can uncompute it by 
+executing the inverse of $p$ with $y$ as its input and $x$ as its 
+output. This method is also described in \cite{Bennett73}.
+
+\begin{align*}
+&\text{state: } a = 3, b = 0, p(x,y) = \lambda x. \lambda y. y += (x + 5)\\
+&\exe{p}(a,b)\\
+&\text{state: } a = 3, b = 8, \inv{p}(x,y) = \lambda x. \lambda y. y -= (x - 5)\\
+&\exe{\inv{(p)}}(y,x)\\
+&\text{state: } a = 0, b = 8\\
+\end{align*}
+
+%\begin{lstlisting}[language=c]
+  %state: x = 3, y = 0, f(x) = x + 5 // initial state
+  %y += (x + 5) f(x)    // original algorithm
+  %state: x = 3, y = 8, // forward run finished
+  %state: x = 3, y = 5, // copy saved
+  %x -= f^-1(y)         // run original algorithm backwards
+  %state: x = 3, y = 5, output = 0, output_copy = 8  // final state with initial input values, the correct result and no intermediate values (empty log)
+%\end{lstlisting}
+
+This second trick was used only in the Salsa20 algorithm in the 
+\code{quarterround} procedure. 
 
 \subsection{Implementations}
 
 \subsubsection{Reversible languages}
 
+There have been several reversible languages designed (a short summary 
+is provided at the end of \cite{Yokoyama2010}), but so far \term{Janus} 
+has proven most useful. It has an actively developed interpreter in 
+Haskell, another interpreter in JavaScript, which enables running code 
+in a web browser and it was also extended several times 
+\todo{citation?}. Janus is a (semi-)high-level C-like language, which 
+makes it a fit for comparing implementations with actual C code. Author 
+also has to acknowledge the fact that one of the supervisors is the 
+developer of the interpreter in Haskell, and our cooperation has 
+brought many patches, updates and extensions to it.
+
+Another language that has been considered for this work was RFun, a 
+reversible functional language. However, at the time of writing, RFun 
+was very limited in its abilities, especially when dealing with 
+numbers. Cryptographical code almost always uses some form of bitwise 
+operations and those are not available under Peano number arithmetics; 
+secondly, most of such code is also imperative, not functional. 
+\todo{check that sentence} Furthermore, a new development of this 
+language was just under way, so it made sense to stick to a more stable 
+and working tool.
+
 \subsubsection{Reversible hardware}
+
+\todo{is this subsubsection worth it? on second thought I doubt it.}
 
 \section{Goals}
 
+Our aim is to explore the combination of reversibility and 
+cryptography. Irreversible implementations of crypto algorithms often 
+either suffer from insufficiencies from the security perspective or are 
+difficult to implement correctly. Due to performance being also 
+critical, programmers have to actively fight compilers to make sure 
+their code is safe. Our main goal is to alleviate that in at least some 
+way. Reversible code is more predictable in terms of memory management. 
+\todo{Ken will complain about that sentence, and I'd agree}. Reversible 
+algorithms can follow a much cleaner formal definition that does not 
+leak memory contents outside the scope of those functions. \todo{the last sentence gives it away?}
+
+The second goal is to exploit the bijectivity of crypto algorithms. 
+Decryption is just an inverse function to encryption, so only of them 
+needs coding. This lowers the implementation and debugging time demands.
+
+The third goal is getting some practical experience with Janus, finding 
+its strenghts and weaknesses and suggesting improvements.
 
 %\section{Terminology}
 
@@ -367,11 +636,511 @@ of this thesis and the details are not important for us here.
 %expected behaviour and goals and finally methods of evaluating those 
 %properties. 
 
-+ use translation to other language for verification (e.g. Vale)
+\section{Avoiding state information leakage}
+
+Clearly, reversible code cannot delete information since the output 
+would not be reversible back into its corresponding input. Similarly, 
+no information can be "created", since that would be information 
+deletion when reversed. Information can be duplicated and 
+de-duplicated; one is the inverse of the other, so it is consistent 
+with reversibility. In theory, we can apply this in our bijective 
+crypto algorithms so that for every bit of input information, we output 
+exactly one bit of output information. So assuming the key and 
+plaintext memory locations are taken care of properly with regards to 
+security, then any implementation can avoid leaking information by 
+using only these safe memory locations and uncalculating anything else.
+
+\section{Example algorithms}
+
+Let us select some algorithms to work with. We will start with one of 
+the simplest and still practical encryption algorithms, then move on to 
+some more well known.
+
+\todo{ARX definition?}
+
+\subsection{TEA}
+
+The \term{Tiny Encryption Algorithm} (TEA)\cite{tea95} is, per its 
+name, incredibly simple and small. It is so simple that we can even 
+show the complete code for it here; however, since decryption is just a 
+reversal of encryption, we are showing only the encryption procedure:
+
+\begin{lstlisting}[language=C]
+void encrypt (uint32_t* v, uint32_t* k) {
+    uint32_t v0=v[0], v1=v[1], sum=0, i;           /* set up */
+    uint32_t delta=0x9e3779b9;                     /* a key schedule constant */
+    uint32_t k0=k[0], k1=k[1], k2=k[2], k3=k[3];   /* cache key */
+    for (i=0; i < 32; i++) {                       /* basic cycle start */
+        sum += delta;
+        v0 += ((v1<<4) + k0) ^ (v1 + sum) ^ ((v1>>5) + k1);
+        v1 += ((v0<<4) + k2) ^ (v0 + sum) ^ ((v0>>5) + k3);
+    }                                              /* end cycle */
+    v[0]=v0; v[1]=v1;
+}
+\end{lstlisting}
+
+The decryption procedure is analogous. Both procedures take two 
+arguments, a key and some data, and perform the necessary operations; 
+if we removed the local variables \code{v*} and \code{k*}, the changes 
+would be performed in-place, thus avoiding spilling any secrets 
+anywhere else in memory, except for processor registers.
+
+There are two subsequent extensions, named \term{XTEA} and 
+\term{XXTEA}, which improve the cryptographic security. XTEA performes 
+slightly different updates of those \code{v*} variables, but is the 
+same otherwise. XXTEA finally encrypts a whole block of data instead of 
+just two words. It also uses a few more local variables, but the 
+general approach is identical. We discuss XXTEA in more detail in 
+section \ref{sec:impl:tea}.
+
+\subsection{RC5}
+
+A somewhat more complicated algorithm is \term{RC5}, which was a 
+candidate for the \term{AES}. Unlike TEA, RC5 already performs 
+something called \term{key expansion}. Key expansion often extends the 
+key to a larger data stream; in the case of RC5, the number of 
+encryption rounds is the defining factor in that length. Additionally, 
+some further mathematical operations are applied to it, increasing 
+randomization of key bit distribution. This expansion is performed once 
+for a single key and then re-used, since it only depends on the key and 
+some predefined constants. The encryption itself can then be much 
+simpler, as is the case here. Let us look at RC5 more closely:
+
+\begin{lstlisting}[language=C]
+void RC5_ENCRYPT(uint32_t *v, uint32_t *S, int rounds)
+{
+   uint32_t i, A = v[0] + S[0], B = v[1] + S[1];
+   
+   for(i = 1; i <= r; i++)
+   {
+      A = ROTL(A ^ B, B) + S[2*i];
+      B = ROTL(B ^ A, A) + S[2*i + 1];
+   }
+   v[0] = A; v[1] = B;
+}
+\end{lstlisting}
+\textit{\footnotesize Source: Wikipedia, RC5 paper}\\
+
+Just like with TEA, the encryption can be performed in-place. Unlike 
+TEA, the procedure technically asks for a third parameter, a number of 
+rounds; of course that can be removed by using a fixed constant. Also 
+note that the \code{S} variable represents the expanded key, which 
+brings us to the expansion itself, which is finally interesting 
+(presenting it in a pseudocode for clarity):
+
+\begin{lstlisting}[language=Python]
+# w - The length of a word in bits, typically 16, 32 or 64.
+# u - The length of a word in bytes.
+# b - The length of the key in bytes.
+# K[] - The key, considered as an array of bytes (using 0-based indexing).
+# c - The length of the key in words (or 1, if b = 0).
+# L[] - A temporary working array used during key scheduling. initialized to the key in words.
+# r - The number of rounds to use when encrypting data.
+# t = 2(r+1) - the number of round subkeys required.
+# S[] - The round subkey words.
+
+# Break K into words
+u = w / 8
+c = ceiling( max(b, 1) / u )
+# L is initially a c-length list of 0-valued w-length words
+for i = b-1 down to 0 do:
+    L[i/u] = (L[i/u] << 8) + K[i]
+     
+# Initialize key-independent pseudorandom S array
+# S is initially a t=2(r+1) length list of undefined w-length words
+S[0] = P_w
+for i = 1 to t-1 do:
+    S[i] = S[i-1] + Q_w
+    
+# The main key scheduling loop
+i = j = 0
+A = B = 0
+do 3 * max(t, c) times:
+    A = S[i] = (S[i] + A + B) <<< 3
+    B = L[j] = (L[j] + A + B) <<< (A + B)
+    i = (i + 1) % t
+    j = (j + 1) % c
+
+# return S
+\end{lstlisting}
+\textit{\footnotesize Source: Wikipedia}\\
+
+The first loop only makes sure the key is represented in little-endian 
+form. The second loop is just an initialization of the buffer 
+containing the expanded key. The important randomization occurs in the 
+last loop, which seems slightly complicated at first glance. The 
+iteration itself does not use a single variable, but instead uses both 
+\code{i} and \code{j}, since both are used as an index for different 
+arrays that may have different lengths. Furthermore, the number of 
+loops is also not set by a single value - it is selected as a maximum 
+of two values. And last but not least, the \code{A} and \code{B} 
+variables are being re-set on every loop. No wonder that when we look 
+at the paper establishing RC5, we find this note: 
+
+\textit{,,The key-expansion function has a certain amount of 
+``one-wayness'': it is not so easy to determine K from S.''}
+
+For our purpose, which is re-writing the procedure in a reversible 
+language, does not sound encouraging. On the other hand, we know that 
+we can make anything reversible using a Bennett's trick at worst. The 
+solution is simple: these statements are actually not 
+mutually-exclusive: the fact is that S is not the only result of the 
+expansion function, because both S and L get updated so that they are 
+dependent on each other. So it is true that getting S from K is not 
+easy, but it is easy to get K from both S and L. Given our scenario, 
+that is still something to be considered.
+
+\subsection{Salsa20 and Chacha20}
+
+Salsa20 and Chacha20 are relatively new algorithms. Unlike previous 
+algorithms, they are \term{stream ciphers}, meaning they do not take 
+the plaintext as an argument, but they generate a stream of random 
+bits, which is then combined (\eg using XOR) with the plaintext. 
+Chacha20 is based on Salsa20 and has improved both performance and 
+security. Code complexity is comparable to RC5, but it is more synoptic 
+with Chacha20 being even more so than Salsa20 - this becomes clear when 
+reading the Janus code.
+
+Interestingly, both Salsa20 and Chacha20 documents mention 
+invertibility unlike other documents. Invertibility referred to the 
+mathematical property of bijectivity rather than reversibility as in 
+our case. Worthy of notice is also the actual difference in 
+implementing the quarterround functions - as we will see later in 
+\ref{sec:impl:chacha20}. Even though invertibility is explicitly 
+mentioned, neither function is reversible directly, they require some 
+manipulation through a temporary local variable.
+
+\subsection{Simon and Speck}
+
+Finally we discuss two ciphers infamously designed by NSA, the American 
+intelligence agency. We wanted to see whether reversibility has any 
+potential to reveal crypto algorithm weaknesses. Nothing specific was 
+discovered except a general sense of difficulty implementing them. 
+Although Simon is simpler than its companion, Speck contains multiple 
+uses of Bennett's tricks due to complications with reversing some of 
+the calculations. Even when compared to Salsa20 and Chacha20, which 
+both have more lines of code than Speck, both were easier to write. 
+That experience may be explained with more precise documentation. The 
+fact that both Salsa20 and Chacha20 contain fewer and \textit{,,less 
+weird''}~\footnote{From purely personal experience. I cannot offer 
+formal quantification.} occurrences of Bennett's tricks, however, 
+cannot.
+
+\begin{lstlisting}
+\end{lstlisting}
+
+
+\section{Defining inputs, outputs and expected behaviour}
+
+Thanks to assumed bijectivity, we can define two inputs and two outputs for each of our algorithms. \todo{even RC5?}
+\todo{ Also stream ciphers, watch out}
+
+\section{Verification methods}
+
+To verify whether our code fits our formal expectations, we have 
+several options to choose from. We will split them into two groups 
+based on user involvement discuss these separately.
+
+\subsection{Manual methods}
+
+Among the simplest, most demanding and least dependable is experimental 
+behaviour observation and/or testing. We will experimentally show our 
+code cleans up memory after usage.
+
+The second way is showing that cleanup processing using a debugger. 
+That way we can directly point to location in the code where that 
+cleanup occurs. We will use \term{gdb} to demonstrate memory getting 
+zeroed out.
+
+The third way is manually analysing the actual generated machine code. 
+We will isolate and analyse the instructions related to memory cleanup.
+
+\subsection{Automatic methods}
+
+There are some ways to verify different properties automatically; or to 
+enforce them. Methods like theorem provers, however, tend to be 
+difficult to employ. They often require non-trivial amount of skilled 
+work just to formally prove correctness can be as high or even higher 
+than implementing the algorithm in the first place. \todo{citation 
+needed} We will not be using this method.
+
+On a related note, there has been some research made into and 
+real-world application of language-based safe code recently: notably, 
+\term{F*} and its derivative \term{Low*} \cite{Low*}, and the related 
+language \term{Vale}\cite{vale2017}. Low* has been used in the 
+\term{HACL} project, which has been integrated into Mozilla Firefox as 
+a crypto library. Vale is a language dedicated to writing verifiable 
+low-level code; its authors also implemented some crypto algorithms, 
+successfully verified their resistance to state-based and timing-based 
+information leakage and even showed some performance gains. Vale has a 
+huge potential, but at the time of writing it also lacks stability, 
+documentation, examples and manuals. Only an unsuccessful attempt to 
+use Vale was made. Details will be discussed later. \todo{discuss later}
+
+Another approach is turning the compiler into an ally rather an 
+obstacle that has to be worked-around. Such approach was taken by the 
+authors in a very recent paper\cite{whatyouc}. They have implemented an 
+extension to the LLVM/Clang compiler that adds the ability clearing out 
+registers and stack, and to make a selection between two values in 
+constant time. The C11 standard also added \code{memset\_s}, which the 
+compiler is supposed to guarantee to never remove and so it can be used 
+for clearing out heap memory. We will be using this method in 
+combination with the manual methods to verify results.
+
+Lastly, there are projects that offer tracking of sensitive data (or 
+rather taints\todo{taints? is this even the right word?}) when moved 
+around in memory. These are \term{taintgrind} and its derivative 
+\term{secretgrind}, with the latter being specifically designed for 
+crypto algorithms. We will be using secretgrind to track tainted data. 
+This will be in combination with the register and stack clearing 
+method, described above, to make sure nothing of the secret computation 
+is preserved.
+
+
 
 \chapter{Implementation}
 
 %Here we show our implementations, prove their correctness and discuss them.
+\section{Algorithms}
+
+\subsection{TEA}
+\label{sec:impl:tea}
+
+TEA translates to Janus almost directly like in any language, only the 
+local variable allocation and deallocation is Janus-specific.
+
+\begin{lstlisting}[language=Janus]
+procedure TEA_encipher(u32 data[], u32 key[])
+    local u32 delta = 2654435769
+    local u32 sum = 0
+    iterate int i = 1 by 1 to 32
+        sum += delta
+        data[0] += ((data[1] * 16) + key[0]) ^ (data[1] + sum) ^ ((data[1] / 32) + key[1])
+        data[1] += ((data[0] * 16) + key[2]) ^ (data[0] + sum) ^ ((data[0] / 32) + key[3])
+    end
+    delocal u32 sum = 32*delta
+    delocal u32 delta = 2654435769
+\end{lstlisting}
+
+XTEA is just as easy to translate. With XXTEA, we need to carefully 
+update some local variables. Let us look at the code, starting with C:
+
+\begin{lstlisting}
+#define MX ((z>>5^y<<2) + (y>>3^z<<4) ^ (sum^y) + (k[p&3^e]^z))
+
+long xxtea(long* v, long n, long* k) {
+  unsigned long z = v[n-1], y = v[0], sum = 0, e, delta = 0x9e3779b9;
+  long p, q;
+  q = 6 + 52/n;
+  while (q-- > 0) {
+    sum += delta;
+    e = (sum >> 2) & 3;
+    for (p=0; p<n-1; p++) {
+      y = v[p+1];
+      z = v[p] += MX;
+    }
+    y = v[0];
+    z = v[n-1] += MX;
+  }
+  return 0;
+}
+\end{lstlisting}
+\textit{\footnotesize Source: Wikipedia, edited}\\
+
+Note that the code is readable thanks to the MX macro, which is not 
+available with Janus\footnote{We could use some preprocessor like 
+\term{m4} or \term{cpp} like C does, but the Janus interpreter would 
+not be translate that into C without recognizing (or ignoring) it 
+itself. It is, therefore, a good suggestion for Jana improvement.}.
+
+The problematic parts are the \code{e}, \code{y} and \code{z} 
+variables. They are being reset repeatedly, erasing information. 
+Furthermore, \code{z} is being set to a value that is dependent on 
+itself and that is not allowed in Janus. Since \code{e} is set to 
+values dependent only on the variable \code{sum}, which is altered only 
+at the beginning of the main loop, and then some constants, we know we 
+can recalculate \code{e} at the end of the loop again. So to update 
+\code{e} reversibly, we simply subtract the same value it has at the 
+end of the loop.
+
+The problem with \code{y} and \code{z} is their dependency on each 
+other\footnote{This dependency is eventual with \code{y} and immediate 
+with \code{z}.}. The easy way to overcome this is to use a Bennett's 
+trick. The harder way is figuring out what is actually being updated 
+and with what values. In the case of XXTEA this is still fairly 
+manageable, so let us practice. The first thing we realize is that we 
+can safely replace \code{y} with whatever data it was set to. We see 
+that it is being set to the value of \code{v[p+1]}, so we replace all 
+occurrences of y with that. Along with that we also have to partially 
+unroll the inner loop to make sure that the indexed access is within 
+bounds. Then, when we remove \code{y}, we notice that we don't have to 
+set \code{z} as nothing but the \code{MX} macro depends on it, and in 
+that case it simply has the value of the data at the previous index 
+\code{p}. Again, we replace all occurrences of \code{z} with 
+\code{v[p-1]} and pay attention to array bounds.
+
+Finally, the variable \code{p} also needs care when resetting, but that 
+is straightforward to do according to the inner loop exit.
+
+The resulting Janus code follows the above description:
+
+\begin{lstlisting}
+procedure XXTEA_encipher(u32 data[], u32 key[])
+    local u32 delta = 2654435769
+    local int n = 4 //size(data)
+    local u32 sum = 0
+    local u32 e = 0
+    local int p = 1
+    local int q = 6 + 52/n
+    from q = 6 + 52/n loop
+        sum += delta
+        e += (sum / 4) & 3
+        data[0] += ((((data[n-1] / 32) ^ (data[1] * 4)) + ((data[1] / 8) ^ (data[n-1] * 16))) ^ ((sum ^ data[1]) + (key[e] ^ data[n-1])))
+        from p = 1 loop
+            data[p] += ((((data[p-1] / 32) ^ (data[p+1] * 4)) + ((data[p+1] / 8) ^ (data[p-1] * 16))) ^ ((sum ^ data[p+1]) + (key[(p & 3) ^ (int) e] ^ data[p-1])))
+            p += 1
+        until p = n-1
+        data[n-1] += ((((data[n-2] / 32) ^ (data[0] * 4)) + ((data[0] / 8) ^ (data[n-2] * 16))) ^ ((sum ^ data[0]) + (key[(p & 3) ^ (int) e] ^ data[n-2])))
+        p -= (n-2)
+        e -= (sum / 4) & 3
+        q -= 1
+    until q = 0
+    delocal int q = 0
+    delocal int p = 1
+    delocal u32 e = 0
+    delocal u32 sum = (6+52 / (u32)n)*delta
+    delocal int n = 4 //size(data)
+    delocal u32 delta = 2654435769
+\end{lstlisting}
+
+\section{RC5}
+
+Translating RC5 into Janus was difficult and required extra work in 
+designing the reversible code. The encryption function is simple, but 
+the key expansion function has grown considerably during translation 
+even when partially altered - the last loop has a simplified exit 
+condition.
+
+\todo{polish RC5. L is not initialized because of the missing first 
+loop. encryption function has wrong api, it should do changes in-place}
+
+\begin{lstlisting}
+\end{lstlisting}
+
+\subsection{Salsa20}
+
+In case of Salsa20, we are not taking existing C code or pseudocode and 
+translating it into Janus. We are following a precise mathematical 
+formulation that is presented in the specification\cite{salsa}. As a 
+result, we do not compare our implementation with C code anymore. 
+We focus solely on Janus instead.
+
+The first issue appeared with the quarterround function. Initially, a 
+misunderstanding of the specification resulted in applying the second 
+Bennett's trick like this:
+
+\begin{lstlisting}[language=Janus]
+procedure quarterround(u32 seq[4])
+	local u32 tmp_seq[4]
+	call quarterround_bt(seq, tmp_seq)
+	seq[0] <=> tmp_seq[0]
+	seq[1] <=> tmp_seq[1]
+	seq[2] <=> tmp_seq[2]
+	seq[3] <=> tmp_seq[3]
+	uncall quarterround_bt(seq, tmp_seq) // 2nd Bennett's trick
+	delocal u32 tmp_seq[4]
+\end{lstlisting}
+
+Noticing the error, the \code{quarterround} procedure was reimplemented 
+to make its computations in-place. Now only one temporary variable is 
+required, and that is only due to the feature lacking within the Janus 
+language. The suggestion is to implement functions, \ie procedures that 
+return a value. Let us consider this extension with an example:
+
+\begin{lstlisting}[language=Janus]
+// classic Janus
+procedure multiply_proc(int a, int b, int c)
+  c += a * b
+
+// Proposed extension
+function multiply_func(int a, int b)
+  return a * b
+
+// Usage of the procedure, computes result += a * b * c
+procedure multiply_three(int a, int b, int c, int result)
+  local tmp = 0
+  call multiply_proc(a, b, tmp)
+  call multiply_proc(tmp, c, result)
+  uncall multiply_proc(a, b, tmp)
+  delocal tmp = 0
+
+// Usage of the function
+procedure multiply_three(int a, int b, int c, int result)
+  result += call multiply_func(call multiply_func(a, b), c)
+\end{lstlisting}
+
+Obviously the procedure \code{multiply\_three} would also be a function, 
+but we disregard that for this example.
+
+These functions would be just a syntactic sugar compared to what the 
+programmers does with procedures. The extension then would follow these 
+steps:
+
+\begin{enumerate}
+\item automatically allocate a hidden temporary variable, local to the caller, for storing the returned value
+\item add that variable as another parameter
+\item replace the \code{return} statement with adding the value to the new parameter (using the \code{+=} operator)
+\item add corresponding uncall for clearing that hidden variable in the caller
+\end{enumerate}
+
+Note that with these steps followed, the syntactic sugar would in fact 
+unroll into this:
+
+\begin{lstlisting}[language=Janus]
+// Usage of the procedure, computes result += a * b * c
+procedure multiply_three(int a, int b, int c, int result)
+  local hidden_tmp1 = 0
+  local hidden_tmp2 = 0
+  call multiply_proc(a, b, hidden_tmp1)
+  call multiply_proc(hidden_tmp1, c, hidden_tmp2)
+  result += hidden_tmp2
+  uncall multiply_proc(hidden_tmp1, c, hidden_tmp2)
+  uncall multiply_proc(a, b, tmp)
+  delocal hidden_tmp2 = 0
+  delocal hidden_tmp1 = 0
+\end{lstlisting}
+
+This code is not as efficient as the hand-written equivalent above, 
+however, in the case of the \code{quarterround} function in Salsa20, 
+there would be no efficiency decrease. Consider this piece of code, 
+with both the hand-written form and the one with the suggested 
+extension:
+
+\begin{lstlisting}[language=Janus]
+  // z1 = y1 ^ ((y0 + y3) <<< 7)
+  tmp += seq[0] + seq[3]
+  call rotate_left_u32(tmp, 7)
+  seq[1] ^= tmp
+  uncall rotate_left_u32(tmp, 7)
+  tmp -= (seq[0] + seq[3])
+  
+  // z1 = y1 ^ ((y0 + y3) <<< 7)
+  seq[1] ^= call rotate_left_u32(seq[0] + seq[3], 7)
+\end{lstlisting}
+
+Following the steps above, the automatically unrolled code would be the 
+same as the hand-written code. This extension would allow for replacing 
+the 26-line procedure with a 5-line function with same efficiency and 
+much better readability.
+
+
+\subsection{Chacha20}
+\label{sec:impl:chacha20}
+
+\todo{explain difference in quarterround functions between Salsa20 and 
+Chacha20 here. The difficulty in reversible implementation is 
+interesting}
+
 
 \chapter{Evaluation}
 
@@ -383,6 +1152,8 @@ of this thesis and the details are not important for us here.
 
 Evaluation of our solution in a broader context, usability in practice 
 and viability of real-world implementation
+
+\todo{add what's required for usability: random number generators, nonce generators}
 
 \chapter{Related Work}
 
