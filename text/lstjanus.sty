@@ -1,0 +1,206 @@
+% lstlisting for Janus is made by updating Thomas Braibant's lstlisting for Haskell
+%   https://github.com/braibant/invert_paper/blob/master/lsthaskell.sty
+%
+\RequirePackage{xcolor}
+\RequirePackage{listings}
+
+
+% Color definitions
+\definecolor{ltblue}{rgb}{0,0.4,0.4}
+\definecolor{dkblue}{rgb}{0,0.1,0.6}
+\definecolor{dkgreen}{rgb}{0,0.35,0}
+\definecolor{dkviolet}{rgb}{0.3,0,0.5}
+\definecolor{dkred}{rgb}{0.5,0,0}
+\definecolor{shade}{RGB}{245,245,245}
+
+\lstdefinelanguage{Janus}{ 
+%
+% Anything betweeen $ becomes LaTeX math mode
+mathescape=true,
+breaklines=false,
+% backgroundcolor=\color{shade},
+framexleftmargin=0.05in,
+basicstyle=\ttfamily\small,
+numberstyle=\tiny,
+%
+% Comments may or not include Latex commands
+texcl=false, 
+%
+morekeywords=[1]{procedure},
+%
+morekeywords=[2]{call, uncall, local, delocal, from, loop, do, until, iterate, by, to, end, if, then, else, fi, error, size, assert, show, print, printf, skip},
+%
+morekeywords=[3]{int, u8, u16, u32, u64, s8, s16, s32, s64, bool, stack},
+%
+morekeywords=[4]{ancilla, constant},
+%
+morekeywords=[5]{true, false, empty, nil},
+%
+% morekeywords=[6]{},
+%
+% Comments delimiters, we do turn this off for the manual
+comment=[l]{//},
+morecomment=[s]{/*}{*/},
+%
+% Spaces are not displayed as a special character
+showstringspaces=false,
+%
+% String delimiters
+morestring=[b]",
+morestring=[d],
+%
+% Size of tabulations
+tabsize=3,
+%
+% Enables ASCII chars 128 to 255
+extendedchars=false,
+%
+% Case sensitivity
+sensitive=true,
+%
+% Automatic breaking of long lines
+breaklines=false,
+%
+% Default style fors listings
+%basicstyle=\small,
+% I would like the font to be normalsize
+basicstyle=\normalsize,
+%
+% Position of captions is bottom
+captionpos=b,
+%
+% flexible columns
+columns=[l]flexible,
+%
+% Style for (listings') identifiers
+identifierstyle={\ttfamily\color{black}},
+% Style for declaration keywords
+keywordstyle=[1]{\ttfamily\color{dkviolet}},
+% Style for gallina keywords
+keywordstyle=[2]{\ttfamily\color{dkblue}},
+% Style for sorts keywords
+keywordstyle=[3]{\ttfamily\color{dkred}},
+% Style for tactics keywords
+keywordstyle=[4]{\ttfamily\color{dkpink}},
+% Style for terminators keywords
+keywordstyle=[5]{\ttfamily\color{dkgreen}},
+%Style for iterators
+%keywordstyle=[6]{\ttfamily\color{dkpink}},
+% Style for strings
+stringstyle=\ttfamily,
+% Style for comments
+commentstyle={\ttfamily\color{dkgreen}},
+%
+%moredelim=**[is][\ttfamily\color{red}]{/&}{&/},
+literate=
+    {~}{{\ }}1
+    {+}{{\texttt{+}}}1
+    {-}{{\texttt{-}}}1
+    {^}{{\texttt{\^}}}1
+    {=}{{\texttt{=}}}2
+%
+}[keywords,comments,strings]
+
+\lstdefinelanguage{Vale}{ 
+%
+% Anything betweeen $ becomes LaTeX math mode
+mathescape=true,
+breaklines=false,
+backgroundcolor=\color{shade},
+framexleftmargin=0.05in,
+basicstyle=\ttfamily\small,
+numberstyle=\tiny,
+%
+% Comments may or not include Latex commands
+texcl=false, 
+%
+morekeywords=[1]{procedure},
+%
+morekeywords=[2]{decreases, for, invariant, modifies, reads, requires, var},
+%
+morekeywords=[3]{heaplet_id, int, taint},
+%
+morekeywords=[4]{eax, ebx, ecx, edx, esp, ebp, stack, mem, memory},
+% %
+% morekeywords=[5]{},
+% %
+% morekeywords=[6]{},
+%
+% Comments delimiters, we do turn this off for the manual
+comment=[l]{//},
+morecomment=[s]{/*}{*/},
+%
+% Spaces are not displayed as a special character
+showstringspaces=false,
+%
+% String delimiters
+morestring=[b]",
+morestring=[d],
+%
+% Size of tabulations
+tabsize=3,
+%
+% Enables ASCII chars 128 to 255
+extendedchars=false,
+%
+% Case sensitivity
+sensitive=true,
+%
+% Automatic breaking of long lines
+breaklines=false,
+%
+% Default style fors listings
+%basicstyle=\small,
+% I would like the font to be normalsize
+basicstyle=\normalsize,
+%
+% Position of captions is bottom
+captionpos=b,
+%
+% flexible columns
+columns=[l]flexible,
+%
+% Style for (listings') identifiers
+identifierstyle={\ttfamily\color{black}},
+% Style for declaration keywords
+keywordstyle=[1]{\ttfamily\color{dkviolet}},
+% Style for gallina keywords
+keywordstyle=[2]{\ttfamily\color{dkblue}},
+% Style for sorts keywords
+keywordstyle=[3]{\ttfamily\color{dkred}},
+% Style for tactics keywords
+% keywordstyle=[4]{\ttfamily\color{dkblue}},
+% Style for terminators keywords
+% keywordstyle=[5]{\ttfamily\color{dkred}},
+%Style for iterators
+%keywordstyle=[6]{\ttfamily\color{dkpink}},
+% Style for strings
+stringstyle=\ttfamily,
+% Style for comments
+commentstyle={\ttfamily\color{dkgreen}},
+%
+%moredelim=**[is][\ttfamily\color{red}]{/&}{&/},
+literate=
+    {~}{{\ }}1
+    {&}{{\texttt{\&}}}1
+    {/}{{\texttt{/}}}1
+    {+}{{\texttt{+}}}1
+    {-}{{\texttt{-}}}1
+    {^}{{\texttt{\^}}}1
+    {=}{{\texttt{=}}}2
+%
+}[keywords,comments,strings]
+
+\lstnewenvironment{januscode}{\lstset{language=Janus}}{}
+\lstnewenvironment{valecode}{\lstset{language=Vale}}{}
+
+% pour inliner dans le texte
+\def\janusinl{\lstinline[language=Janus]}
+% pour inliner dans les tableaux / displaymath...
+%\def\haskels{\lstinline[language=RFun, basicstyle=\scriptsize]}
+
+%%% Local Variables: 
+%%% mode: latex
+%%% Local IspellDict: british
+%%% TeX-master: "main.tex"
+%%% End: 
