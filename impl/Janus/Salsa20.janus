@@ -1,13 +1,15 @@
 // see https://cr.yp.to/snuffle/spec.pdf
 
 procedure rotate_left_u32(u32 x, int r)
-    local u32 rm = r % 32
-    local u32 y = (x << rm) | (x >> (32 - rm))
+    local int rm = r % 32
+    local int rmc = 32 - rm
+    local u32 y = ( x << rm) | (x >> rmc)
     x <=> y
-    delocal u32 y = (x >> rm) | (x << (32 - rm))
-    delocal u32 rm = r % 32
+    delocal u32 y = ( x >> rm) | (x << rmc)
+    delocal int rmc = 32 - rm
+    delocal int rm = r % 32
 
-//procedure quarterround(u32 seq[4])
+procedure quarterround(u32 seq[4])
 	local u32 tmp = 0
 	// z1 = y1 ^ ((y0 + y3) <<< 7)
   tmp += seq[0] + seq[3]
@@ -37,7 +39,7 @@ procedure rotate_left_u32(u32 x, int r)
 	uncall rotate_left_u32(tmp, 18)
 	tmp -= (seq[3] + seq[2])
   
-	delocal int tmp = 0
+	delocal u32 tmp = 0
 
 
 //procedure quarterround_bt(u32 in_seq[4], u32 out_seq[4])
@@ -173,7 +175,7 @@ procedure doubleround(u32 seq[16])
 // I don't know if this can be done without Bennett
 procedure Salsa20(u32 in[16], u32 out[16])
 	iterate int i = 0 by 1 to 16
-		out[i] += x[i]
+		out[i] += in[i]
 	end
 	iterate int i = 0 by 1 to 10
 		call doubleround(out)

@@ -61,7 +61,7 @@
 
 \def\enc{\ensuremath{\mathit{enc}}}
 \def\dec{\ensuremath{\mathit{dec}}}
-\def\inv{\ensuremath{\mathcal{I}}}
+\newcommand{\inv}[1]{\ensuremath{\mathcal{I}(#1)}}
 \newcommand{\exe}[1]{\ensuremath{[\![#1]\!]}}
 
 \newcommand{\name}[1]{\textsc{#1}}
@@ -271,11 +271,10 @@ for decryption (a \term{private key}). Its security relies on some hard
 mathematical problems like integer factorization in the case of RSA. If 
 that could somehow be performed as fast as the factor multiplication, 
 it would render the whole algorithm broken. It does not achieve the 
-same levels of performance \cite{sym-asym}\todo{is StackOoverflow 
-citation sufficient?}. For that reason it is not considered 
-lightweight. It can, however, be used for so-called hybrid encryption 
-schemes, where PKI is used to exchange the secret key for some 
-symmetric algorithm.
+same levels of performance \cite{sym-asym}. For that reason it is not 
+considered lightweight. It can, however, be used for so-called hybrid 
+encryption schemes, where PKI is used to exchange the secret key for 
+some symmetric algorithm.
 
 \subsection{Definition}
 
@@ -373,18 +372,45 @@ This minor change can have drastic effects on security.
 
 \subsection{Avoidance}
 
-\todo{how to defend against them?}
+There are multiple ways for avoiding side-channel vulnerabilities, but 
+most (if not all) of them require some extra work on the programmer's 
+side. The most time consuming and also error-prone method for avoiding 
+state leakage would be manually clearing memory. Just tracking the used 
+memory would be exhausting. Naturally, the programmer could create a 
+\term{memory pool}, \ie a block of memory, where the algorithm would 
+store its data. This block would then be erased altogether after the 
+algorithm has finished. Along with that, the programmer would also need 
+to erase the stack and processor registers. A reliable way of doing 
+that is extending a compiler, which is described in \cite{whatyouc} and 
+which we also use (see section \ref{sec:verifmet} and later 
+\ref{sec:eval}).
+
+Avoiding a timing side-channel is significantly harder, since it 
+depends on the processor instruction semantics and may depend on the 
+algorithm. There has been some progress with this, and we discuss this 
+in \ref{sec:verifmet}. Every side-channel is specific, however, and 
+requires specific countermeasures. In case of the power analysis, for 
+example, the actual device has to be designed from the ground up to be 
+resilient.
+
+
 
 \section{Reversibility and its implications}
 
-\todo{intro}
+Reversibility is the ability of a program to be executed both forwards 
+and backwards deterministically. Although discussed earlier, first 
+major research was done by Landauer\cite{Landauer61}. 
+Bennett\cite{Bennett73} and others continued the research and a first 
+logically reversible language Janus was born (\cite{janus86}, 
+\cite{Yokoyama2010}).
 
 \subsection{Definitions}
 
-Consider a program $p$ and some values $x$ and $y$. Then $\exe{p}(x) = 
-(y)$ represents\footnote{Here we are using the notation from 
-\cite{Jones93}.} the execution of program $p$ with $x$ as a given 
-parameter and $y$ being the result. So in the case of encryption we have:
+Consider a reversible program $p$ and some values $x$ and $y$. Then 
+$\exe{p}(x) = (y)$ represents\footnote{Here we are using the notation 
+from \cite{Jones93}.} the execution of program $p$ with $x$ as a given 
+parameter and $y$ being the result. So in the case of encryption we 
+have:
 
 $$
 \exe{\enc}(k,p) = (k,c) \,.
@@ -414,7 +440,7 @@ interesting observation:
 
 \begin{align*}
 \exe{\enc}(k,p) &= (k,c) \\
-\exe{\dec}(k,c) &= \exe{\inv(\enc)}(k,c) = (k,p) \,.
+\exe{\dec}(k,c) &= \exe{\inv{\enc}}(k,c) = (k,p) \,.
 \end{align*}
 
 The implication of that is that we can avoid implementing the 
@@ -442,26 +468,24 @@ the irreversible one; irreversibility allows for information erasure,
 it does not require it. Similarly, the power is not smaller. This can 
 be shown by having the irreversible machine keep a log of its 
 operations and intermediate values, run its algorithm to finish to 
-compute the output, copy the output and then run all its operations 
-backwards using the log. The complete proof was also shown by Bennett 
-\cite{Bennett73}. Below is a simple example for addition:
-
-\todo{the example is bad. it's just like janus instead of taking pure irreversible language and adding a log}
-
-\begin{lstlisting}[language=c]
-  state: x = 3, y = 5, output = 0, output_copy = 0  // initial state
-  output += (x + y)                                 // original algorithm
-  state: x = 3, y = 5, output = 0, output_copy = 0  // output state
-\end{lstlisting}
+compute the output, copy the output (without logging) and then run all 
+its operations backwards using the log. The complete proof was also 
+shown by Bennett \cite{Bennett73}. Below is a simple example for 
+addition:
 
 \begin{lstlisting}[language=c]
-  state: x = 3, y = 5, output = 0, output_copy = 0  // initial state
-  output += (x + y)                                 // original algorithm
-  state: x = 3, y = 5, output = 8, output_copy = 0  // forward run finished
-  output_copy += output                             // copy result to a safe location
-  state: x = 3, y = 5, output = 8, output_copy = 8  // copy saved
-  output -= (x + y)                                 // run original algorithm backwards
-  state: x = 3, y = 5, output = 0, output_copy = 8  // final state with initial input values, the correct result and no intermediate values (empty log)
+  state: x = 3, y = 5, z = 0, output = 0  // initial state
+  log: empty
+  z = (x + y)                             // original algorithm
+  state: x = 3, y = 5, z = 8, output = 0  // forward run finished
+  log: set z to (x + y), was 0
+  output = z                              // copy result to a safe location, log ignored
+  state: x = 3, y = 5, z = 8, output = 8  // copy saved
+  log: set z to (x + y), was 0
+  z = 0                                   // run original algorithm backwards
+  state: x = 3, y = 5, z = 0, output = 8  // final state with initial input values, 
+                                          // correct result and no intermediate values
+  log: empty
 \end{lstlisting}
 
 
@@ -499,7 +523,9 @@ The correct and complete definition of $\enc_A$ would then be:
 
 Of course the plaintext is not transmitted or shared, only the 
 ciphertext is. This definition avoids information loss and can be 
-directly reversed by simply uncalculating \todo{define "uncalculating"} 
+directly reversed by simply uncalculating\footnote{By "uncalculating" 
+we mean reversing the program execution, thus going from the output 
+back to the input. See also Bennett's tricks later in this chapter.} 
 the ciphertext. In the case of the RSA algorithm, the public key has 
 two components which are combined with the plaintext input in a 
 loss-ful way. How this operation works is well-understood, out-of-scope 
@@ -560,7 +586,7 @@ output. This method is also described in \cite{Bennett73}.
 &\text{state: } a = 3, b = 0, p(x,y) = \lambda x. \lambda y. y += (x + 5)\\
 &\exe{p}(a,b)\\
 &\text{state: } a = 3, b = 8, \inv{p}(x,y) = \lambda x. \lambda y. y -= (x - 5)\\
-&\exe{\inv{(p)}}(y,x)\\
+&\exe{\inv{p}}(y,x)\\
 &\text{state: } a = 0, b = 8\\
 \end{align*}
 
@@ -576,16 +602,14 @@ output. This method is also described in \cite{Bennett73}.
 This second trick was used only in the Salsa20 algorithm in the 
 \code{quarterround} procedure. 
 
-\subsection{Implementations}
-
-\subsubsection{Reversible languages}
+\subsection{Reversible languages}
 
 There have been several reversible languages designed (a short summary 
 is provided at the end of \cite{Yokoyama2010}), but so far \term{Janus} 
 has proven most useful. It has an actively developed interpreter in 
 Haskell, another interpreter in JavaScript, which enables running code 
 in a web browser and it was also extended several times 
-\todo{citation?}. Janus is a (semi-)high-level C-like language, which 
+\cite{janus}. Janus is a (semi-)high-level C-like language, which 
 makes it a fit for comparing implementations with actual C code. Author 
 also has to acknowledge the fact that one of the supervisors is the 
 developer of the interpreter in Haskell, and our cooperation has 
@@ -597,15 +621,12 @@ was very limited in its abilities, especially when dealing with
 numbers. Cryptographical code almost always uses some form of bitwise 
 operations and those are not available under Peano number arithmetics; 
 secondly, most of such code is also imperative, not functional. 
-\todo{check that sentence} Furthermore, a new development of this 
-language was just under way, so it made sense to stick to a more stable 
-and working tool.
+Furthermore, a new development of this language was just under way, so 
+it made sense to stick to a more stable and workable tool.
 
-\subsubsection{Reversible hardware}
-
-\todo{is this subsubsection worth it? on second thought I doubt it.}
 
 \section{Goals}
+\label{sec:goals}
 
 Our aim is to explore the combination of reversibility and 
 cryptography. Irreversible implementations of crypto algorithms often 
@@ -613,13 +634,14 @@ either suffer from insufficiencies from the security perspective or are
 difficult to implement correctly. Due to performance being also 
 critical, programmers have to actively fight compilers to make sure 
 their code is safe. Our main goal is to alleviate that in at least some 
-way. Reversible code is more predictable in terms of memory management. 
-\todo{Ken will complain about that sentence, and I'd agree}. Reversible 
-algorithms can follow a much cleaner formal definition that does not 
-leak memory contents outside the scope of those functions. \todo{the last sentence gives it away?}
+way. Reversible code is limited in how it manages memory - no erasure 
+is allowed, and so deallocations have to be preceded by proper 
+cleanup. Reversible algorithms can follow a much cleaner formal 
+definition that does not leak memory contents outside the scope of 
+those functions.
 
 The second goal is to exploit the bijectivity of crypto algorithms. 
-Decryption is just an inverse function to encryption, so only of them 
+Decryption is just an inverse function to encryption, so only one of them 
 needs coding. This lowers the implementation and debugging time demands.
 
 The third goal is getting some practical experience with Janus, finding 
@@ -656,7 +678,11 @@ Let us select some algorithms to work with. We will start with one of
 the simplest and still practical encryption algorithms, then move on to 
 some more well known.
 
-\todo{ARX definition?}
+Note that these algorithms fit in the \textbf{ARX} group as they are 
+based on three operations: \textbf{A}ddition, \textbf{R}otation and 
+\textbf{X}OR operation. This makes them somewhat similar, but they are 
+still different enough to validate our choices; from very simple to 
+complex, block and stream ciphers, old and new. 
 
 \subsection{TEA}
 
@@ -801,14 +827,15 @@ security. Code complexity is comparable to RC5, but it is more synoptic
 with Chacha20 being even more so than Salsa20 - this becomes clear when 
 reading the Janus code.
 
-Interestingly, both Salsa20 and Chacha20 documents mention 
+Interestingly, both documents for Salsa20 and Chacha20 mention 
 invertibility unlike other documents. Invertibility referred to the 
 mathematical property of bijectivity rather than reversibility as in 
-our case. Worthy of notice is also the actual difference in 
-implementing the quarterround functions - as we will see later in 
-\ref{sec:impl:chacha20}. Even though invertibility is explicitly 
-mentioned, neither function is reversible directly, they require some 
-manipulation through a temporary local variable.
+our case. Even though invertibility is explicitly mentioned (and 
+required), the code is not reversible directly, as they require some 
+manipulation through a temporary local variable. That is caused by the 
+lack of proper feature of the Janus language rather than some deeper 
+reason. Details, including a suggestion for improvement of Janus, are 
+discussed in section \ref{sec:impl:salsa}.
 
 \subsection{Simon and Speck}
 
@@ -839,7 +866,7 @@ Thanks to assumed bijectivity, we can define two inputs and two outputs for each
 
 To verify whether our code fits our formal expectations, we have 
 several options to choose from. We will split them into two groups 
-based on user involvement discuss these separately.
+based on user involvement and discuss these separately.
 
 \subsection{Manual methods}
 
@@ -856,6 +883,7 @@ The third way is manually analysing the actual generated machine code.
 We will isolate and analyse the instructions related to memory cleanup.
 
 \subsection{Automatic methods}
+\label{sec:verifmet}
 
 There are some ways to verify different properties automatically; or to 
 enforce them. Methods like theorem provers, however, tend to be 
@@ -1013,7 +1041,7 @@ procedure XXTEA_encipher(u32 data[], u32 key[])
     delocal u32 delta = 2654435769
 \end{lstlisting}
 
-\section{RC5}
+\subsection{RC5}
 
 Translating RC5 into Janus was difficult and required extra work in 
 designing the reversible code. The encryption function is simple, but 
@@ -1027,7 +1055,8 @@ loop. encryption function has wrong api, it should do changes in-place}
 \begin{lstlisting}
 \end{lstlisting}
 
-\subsection{Salsa20}
+\subsection{Salsa20 and Chacha20}
+\label{sec:impl:salsa}
 
 In case of Salsa20, we are not taking existing C code or pseudocode and 
 translating it into Janus. We are following a precise mathematical 
@@ -1068,11 +1097,12 @@ function multiply_func(int a, int b)
 
 // Usage of the procedure, computes result += a * b * c
 procedure multiply_three(int a, int b, int c, int result)
-  local tmp = 0
+  local int tmp = 0
   call multiply_proc(a, b, tmp)
   call multiply_proc(tmp, c, result)
   uncall multiply_proc(a, b, tmp)
-  delocal tmp = 0
+  delocal int tmp = 0
+
 
 // Usage of the function
 procedure multiply_three(int a, int b, int c, int result)
@@ -1099,20 +1129,20 @@ unroll into this:
 \begin{lstlisting}[language=Janus]
 // Usage of the procedure, computes result += a * b * c
 procedure multiply_three(int a, int b, int c, int result)
-  local hidden_tmp1 = 0
-  local hidden_tmp2 = 0
+  local int hidden_tmp1 = 0
+  local int hidden_tmp2 = 0
   call multiply_proc(a, b, hidden_tmp1)
   call multiply_proc(hidden_tmp1, c, hidden_tmp2)
   result += hidden_tmp2
   uncall multiply_proc(hidden_tmp1, c, hidden_tmp2)
   uncall multiply_proc(a, b, tmp)
-  delocal hidden_tmp2 = 0
-  delocal hidden_tmp1 = 0
+  delocal int hidden_tmp2 = 0
+  delocal int hidden_tmp1 = 0
 \end{lstlisting}
 
 This code is not as efficient as the hand-written equivalent above, 
 however, in the case of the \code{quarterround} function in Salsa20, 
-there would be no efficiency decrease. Consider this piece of code, 
+there would be no performance loss. Consider this piece of code, 
 with both the hand-written form and the one with the suggested 
 extension:
 
@@ -1130,21 +1160,47 @@ extension:
 
 Following the steps above, the automatically unrolled code would be the 
 same as the hand-written code. This extension would allow for replacing 
-the 26-line procedure with a 5-line function with same efficiency and 
-much better readability.
+the 22-line procedure with a 5-line function with the same semantics 
+and much better readability.
 
 
-\subsection{Chacha20}
-\label{sec:impl:chacha20}
+\paragraph{Chacha20}
 
-\todo{explain difference in quarterround functions between Salsa20 and 
-Chacha20 here. The difficulty in reversible implementation is 
-interesting}
+Chacha20, being only a minor update to Salsa20, does not differ 
+dramatically much from its predecessor. The differences consist of 
+different operation ordering and are in the \code{doubleround} and the 
+\code{quarterround} procedures. 
+
+\section{Lack of leakage and translation}
+
 
 
 \chapter{Evaluation}
+\label{sec:eval}
 
-\section{design}
+In this chapter we attempt to test for the properties discussed in 
+section \ref{sec:goals}. These are the goals again:
+
+\begin{enumerate}
+\item show lack of state information leakage,
+\item exploit the duality of encryption and decryption in a reversible setting,
+\item gain practical experience with programming in a reversible language.
+\end{enumerate}
+
+We have demonstrated reaching the last goal in previous chapter, where 
+we discussed how we implemented some crypto algorithms, showed some 
+examples and even gave suggestions for improving the Janus language. At 
+the same time, we also reached the second goal, as we implemented only 
+encryption functions. The reader can execute our programs which also 
+include basic keys and data. Uncalling the encryption function is 
+equivalent to calling the decryption function.
+
+Lastly, the first goal remains and we deal with it here.
+
+\section{Design}
+
+As we mentioned in section \ref{sec:verifmet}, Vale is 
+
 \section{implementations}
 \section{experiments/testing}
 
