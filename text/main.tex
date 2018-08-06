@@ -956,7 +956,7 @@ update some local variables. Let us look at the code, starting with C:
 \begin{lstlisting}
 #define MX ((z>>5^y<<2) + (y>>3^z<<4) ^ (sum^y) + (k[p&3^e]^z))
 
-long xxtea(long* v, long n, long* k) {
+long xxtea(unsigned long* v, unsigned long n, long* k) {
   unsigned long z = v[n-1], y = v[0], sum = 0, e, delta = 0x9e3779b9;
   long p, q;
   q = 6 + 52/n;
@@ -978,7 +978,7 @@ long xxtea(long* v, long n, long* k) {
 Note that the code is readable thanks to the MX macro, which is not 
 available with Janus\footnote{We could use some preprocessor like 
 \term{m4} or \term{cpp} like C does, but the Janus interpreter would 
-not be translate that into C without recognizing (or ignoring) it 
+not translate that into C without recognizing (or ignoring) it 
 itself. It is, therefore, a good suggestion for Jana improvement.}.
 
 The problematic parts are the \code{e}, \code{y} and \code{z} 
@@ -1195,14 +1195,257 @@ encryption functions. The reader can execute our programs which also
 include basic keys and data. Uncalling the encryption function is 
 equivalent to calling the decryption function.
 
-Lastly, the first goal remains and we deal with it here.
+The first goal remains and we deal with it here.
 
 \section{Design}
 
-As we mentioned in section \ref{sec:verifmet}, Vale is 
+We already mentioned some options for verifying our claim in section 
+\ref{sec:verifmet}. The best tool for the job would be Vale, but that 
+turned out to be more of a trouble instead of help. There is no doubt 
+Vale can be highly useful, but at the time of writing the maturity of 
+the project is just not at the required level. Even the installation 
+was problematic; we encountered issues that are not usually expected, 
+like folder tree structure incompatibility and case sensitivity in file 
+naming. There were also other, more common difficulties, like 
+dependencies being required at specific version and package management 
+issues. When the installation finally succeeded, the problems did not 
+disappear. The biggest problems are related to the usability: there is 
+very little documentation, there are practically no examples and even 
+the source code seems hardly readable\footnote{Subjective assessment, 
+the source code for the Vale tool is dense and not commented.}. 
+Furthermore, it seems that to take full advantage of the language, the 
+user also needs to understand the target language (in our case Dafny) 
+and perhaps how the translation is performed. Last but not least, the 
+language is extremely complicated and the effort in learning Vale and 
+implementing an algorithm in it might not be any lower than just using 
+a more classic language and using already established tools and methods 
+for debugging and tuning.
+
+Since we cannot use Vale, the next best option is taint tracking in 
+combination with automatic cleanup of registers and stack memory. 
+Ideally we could use both at the same time, but experiments have shown 
+there is a clash between them. The reason is not perfectly clear, but 
+suspicion lies with how \term{secretgrind} tracks \term{libc} calls and 
+the fact that \term{zerostack} links with \term{musl-libc}. It should 
+be possible to remove this problem in a production scenario without too 
+much effort. Since \term{secretgrind} also tracks stack, though, we do 
+not necessarily require this for the evaluation.
+
+For the evaluation we suggest performing an experiment on selected 
+algorithms to approach describing the reality of state leakage. Let us 
+describe the experiment in steps:
+
+\begin{description}
+
+\item[Step 1: Translation] We start by translating Janus code into 
+C/C++ code. The translation is performed by the Jana interpreter when 
+invoked with the \code{-c} option. On its own, the C/C++ code can be 
+compiled and executed and performs equivalently to its Janus 
+counterpart. There is no input from outside the program, however.
+
+\item[Step 2: Reference] We take a reference implementation of the same 
+algorithm and adjust both the reference and the translated code to read 
+and process data the same way. The reference should form a baseline for 
+our comparison.
+
+\item[Step 3: Taint tracking] We compile both programs the same way and 
+input the same data. We compare their execution using 
+\term{secretgrind} and evaluate their scores in number of bytes 
+potentially leaked.
+
+\item[Step 4: Zerostack substitution] \term{Secretgrind} traces the 
+source of the leaks (taints), and so we can examine them. We then 
+recompile the programs with \term{zerostack} and re-evaluate the 
+situation.
+
+\end{description}
 
 \section{implementations}
-\section{experiments/testing}
+
+\todo{explain edits to translated code and reference chacha implementation}
+
+\section{Experiments}
+
+\subsection{Step 1: Translation}
+
+The code is translated using Jana. There are no manual modifications to 
+make the code compile. We use the older version of translation due to 
+added complexity in recent Jana versions. Originally Jana used a direct 
+translation to C-style arrays, that was substituted by 
+\code{std::array} for a short time and then by \code{std::vector}. 
+Reason for the replacement of C-style arrays was keeping some record of 
+the size of the array. Janus interpreter has a keyword \code{size}, 
+which returns the size of the array, since it is always known as it 
+does not change. C, on the other hand, uses simple pointers to memory 
+and does not track the size of the allocated block\footnote{Not related 
+to heap allocations, which do need to track that information 
+internally.}. The reason to stick to the original translation is 
+simplicity in tracking memory using \term{secretgrind} and the 
+immaturity of the recent changes to Jana.
+
+\subsection{Step 2: Reference}
+
+To have something to check our code against, we download reference 
+implementations from the Internet. We also add some boilerplate code to 
+create executable self-standing programs instead of libraries, and we 
+also add a function for reading from a file. This function uses the 
+\code{read()} function, since that is simple enough to avoid confusion 
+and complexity when tracked by \term{secretgrind}. For the same reason 
+we also disable code that prints out the contents of arrays - prior 
+experiments have shown that functions like \code{scanf} manipulate and 
+taint more memory.
+
+\subsection{Step 3: Taint tracking}
+
+\subsubsection{XXTEA}
+
+XXTEA is the first algorithm for us to examine. While we already talked 
+about TEA and XTEA, they are somewhat simpler and perform their 
+operations in-place, which limits potential leakage. XXTEA, on the 
+other hand, required some work to make the updates in-place. That makes 
+it interesting to compare to classic irreversible implementation.
+
+For the testing, we are using the \code{TEA.janus} file, containing all 
+three TEA-family algorithms; we only comment out the TEA and XTEA 
+invocations. For the reference implementation, we make minor edits to 
+the version on Wikipedia\todo{cite or hyperref?}. For input, we load 
+both key and data for encryption from a file, that will be marked as 
+tainted by \term{secretgrind}. Note that both the key and the data 
+block take up 16 bytes of memory, so a non-leaking implementation 
+should see exactly 32 bytes in total of tainted memory. Let us look at 
+the \term{secretgrind} output for the reference code:
+
+\begin{verbatim}
+***(2) (stack)	 range [0xffefffdcc - 0xffefffdcf]	 (4 bytes)	 is tainted
+   > (stack) [0xffefffdcc - 0xffefffdcf] (4 bytes): XXTEA-C.c:51:@0xffefffdcc:y
+        tainted     at 0x400ABF: xxtea_dec (XXTEA-C.c:62)
+                    by 0x400C68: main (XXTEA-C.c:96)
+
+***(1) (stack)	 range [0xffefffdd4 - 0xffefffdd7]	 (4 bytes)	 is tainted
+   > (stack) [0xffefffdd4 - 0xffefffdd7] (4 bytes): XXTEA-C.c:51:@0xffefffdd4:z
+        tainted     at 0x400A55: xxtea_dec (XXTEA-C.c:61)
+                    by 0x400C68: main (XXTEA-C.c:96)
+
+***(1) (stack)	 range [0xffefffe10 - 0xffefffe2f]	 (32 bytes)	 is tainted
+   > (stack) [0xffefffe10 - 0xffefffe1f] (16 bytes): XXTEA-C.c:90:@0xffefffe10:key
+        tainted     at 0x4F196B0: __read_nocancel (syscall-template.S:81)
+                    by 0x400B63: read_data_binary (XXTEA-C.c:77)
+                    by 0x400C3E: main (XXTEA-C.c:93)
+   > (stack) [0xffefffe20 - 0xffefffe23] (4 bytes): XXTEA-C.c:91:@0xffefffe20:more_data
+        tainted     at 0x400AB7: xxtea_dec (XXTEA-C.c:62)
+                    by 0x400C68: main (XXTEA-C.c:96)
+   > (stack) [0xffefffe24 - 0xffefffe27] (4 bytes): XXTEA-C.c:91:@0xffefffe24:more_data[1]
+        tainted     at 0x400A29: xxtea_dec (XXTEA-C.c:59)
+                    by 0x400C68: main (XXTEA-C.c:96)
+   > (stack) [0xffefffe28 - 0xffefffe2b] (4 bytes): XXTEA-C.c:91:@0xffefffe28:more_data[2]
+        tainted     at 0x400A29: xxtea_dec (XXTEA-C.c:59)
+                    by 0x400C68: main (XXTEA-C.c:96)
+   > (stack) [0xffefffe2c - 0xffefffe2f] (4 bytes): XXTEA-C.c:91:@0xffefffe2c:more_data[3]
+        tainted     at 0x400A29: xxtea_dec (XXTEA-C.c:59)
+                    by 0x400C68: main (XXTEA-C.c:96)
+
+Total bytes tainted: 40
+\end{verbatim}
+
+The printout details three stack ranges. The first two are caused by 
+the \code{y} and \code{z} variables, while the last one makes up the 
+actual input for the algorithm, that is the key and the data. The leak 
+is therefore 8 bytes over the expected 32 bytes.
+
+Because our Janus implementation had to avoid these local erasable 
+variables, and thus perform the updates in-place, there are no extra 
+leaks:
+
+\begin{verbatim}
+***(1) (stack)	 range [0xffefffe20 - 0xffefffe3f]	 (32 bytes)	 is tainted
+   > (stack) [0xffefffe20 - 0xffefffe2f] (16 bytes): TEA-translated.cpp:150:@0xffefffe20:key
+        tainted     at 0x4F196B0: __read_nocancel (syscall-template.S:81)
+                    by 0x4015F6: read_data_binary(unsigned int*, unsigned long, unsigned int*, unsigned long) (TEA-translated.cpp:139)
+                    by 0x4016F9: main (TEA-translated.cpp:167)
+   > (stack) [0xffefffe30 - 0xffefffe33] (4 bytes): TEA-translated.cpp:152:@0xffefffe30:more_data
+        tainted     at 0x401450: XXTEA_encipher_reverse(unsigned int*, unsigned int*) (TEA-translated.cpp:117)
+                    by 0x40171F: main (TEA-translated.cpp:180)
+   > (stack) [0xffefffe34 - 0xffefffe37] (4 bytes): TEA-translated.cpp:152:@0xffefffe34:more_data[1]
+        tainted     at 0x40137F: XXTEA_encipher_reverse(unsigned int*, unsigned int*) (TEA-translated.cpp:114)
+                    by 0x40171F: main (TEA-translated.cpp:180)
+   > (stack) [0xffefffe38 - 0xffefffe3b] (4 bytes): TEA-translated.cpp:152:@0xffefffe38:more_data[2]
+        tainted     at 0x40137F: XXTEA_encipher_reverse(unsigned int*, unsigned int*) (TEA-translated.cpp:114)
+                    by 0x40171F: main (TEA-translated.cpp:180)
+   > (stack) [0xffefffe3c - 0xffefffe3f] (4 bytes): TEA-translated.cpp:152:@0xffefffe3c:more_data[3]
+        tainted     at 0x40124E: XXTEA_encipher_reverse(unsigned int*, unsigned int*) (TEA-translated.cpp:110)
+                    by 0x40171F: main (TEA-translated.cpp:180)
+
+Total bytes tainted: 32
+\end{verbatim}
+
+It has to be pointed out that the leakage-free result could be achieved 
+the same way originally. The difference is that the opposite is not 
+true: reversible programming does not allow the leaking version. Still 
+this is a fairly simple algorithm, so let us move on.
+
+\subsubsection{Chacha20}
+
+\todo{missing description here, posting just the results for now.}
+
+Expected bytes tainted: 64 (16*4)
+
+%In the reference version, there are 7 stack ranges in total with far 
+%too many individual locations to show them. We only show an excerpt 
+%from the output with the total number of bytes tainted at the bottom:
+
+%\begin{verbatim}
+%log_chacha-ref.txt:11: ***(1) (stack)	 range [0xffefffbb0 - 0xffefffbef]	 (64 bytes)	 is tainted
+%log_chacha-ref.txt:90: ***(2) (stack)	 range [0xffefffc00 - 0xffefffc03]	 (4 bytes)	 is tainted
+%log_chacha-ref.txt:96: ***(1) (stack)	 range [0xffefffc30 - 0xffefffc77]	 (72 bytes)	 is tainted
+%log_chacha-ref.txt:442: ***(2) (stack)	 range [0xffefffc90 - 0xffefffc93]	 (4 bytes)	 is tainted
+%log_chacha-ref.txt:460: ***(1) (stack)	 range [0xffefffce0 - 0xffefffcff]	 (32 bytes)	 is tainted
+%log_chacha-ref.txt:486: ***(1) (stack)	 range [0xffefffd20 - 0xffefffd2f]	 (16 bytes)	 is tainted
+%log_chacha-ref.txt:492: ***(1) (stack)	 range [0xffefffd40 - 0xffefffdff]	 (192 bytes)	 is tainted
+%Total bytes tainted: 384
+%\end{verbatim}
+
+In the reference version, there is one stack range for all the data. We 
+only show an excerpt from the output with the total number of bytes 
+tainted at the bottom:
+
+\begin{verbatim}
+log_chacha-ref-nokey.txt:11: ***(1) (stack)	 range [0xffefffd40 - 0xffefffdff]	 (192 bytes)	 is tainted
+Total bytes tainted: 192
+\end{verbatim}
+
+Our Janus-to-C translated version is more modest: only the expected 64 
+bytes are marked as tainted. For some reason, \term{secretgrind} split 
+the data array into 3 sections, but on inspection they do reside right 
+after each other in memory.
+
+\begin{verbatim}
+***(1) (stack)	 range [0xffefffdc0 - 0xffefffdff]	 (64 bytes)	 is tainted
+   > (stack) [0xffefffdc0 - 0xffefffdc3] (4 bytes): Chacha20.janus.3.cpp:702:@0xffefffdc0:seq
+        tainted     at 0x403743: Chacha20_encrypt_forward(unsigned int*, unsigned int*) (Chacha20.janus.3.cpp:637)
+                    by 0x403C31: main (Chacha20.janus.3.cpp:726)
+   > (stack) [0xffefffdc4 - 0xffefffdc7] (4 bytes): Chacha20.janus.3.cpp:702:@0xffefffdc4:seq[1]
+        tainted     at 0x403743: Chacha20_encrypt_forward(unsigned int*, unsigned int*) (Chacha20.janus.3.cpp:637)
+                    by 0x403C03: main (Chacha20.janus.3.cpp:723)
+   > (stack) [0xffefffdc8 - 0xffefffdff] (56 bytes): Chacha20.janus.3.cpp:702:@0xffefffdc0:seq
+        tainted     at 0x4F196B0: __read_nocancel (syscall-template.S:81)
+                    by 0x403A05: read_data_binary(unsigned int*, unsigned long, unsigned int*, unsigned long) (Chacha20.janus.3.cpp:686)
+                    by 0x403B78: main (Chacha20.janus.3.cpp:711)
+
+Total bytes tainted: 64
+\end{verbatim}
+
+
+
+\subsection{Step 4: Zerostack substitution}
+
+\todo{Since I can't get zerostack and secretgrind working together, I 
+want to show how zerostack zeroes out memory (e.g. the instructions 
+injected, their location and what it erases) and compare it to the 
+non-erasing binary that we run under secretgrind. I can manually show 
+that zerostack would erase those leaking memory locations.}
+
+\todo{what about memset\_s? could I use it with secretgrind? it would 
+also be simpler to add to Jana's output}
 
 \chapter{Reflections}
 

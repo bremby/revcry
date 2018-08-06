@@ -195,7 +195,7 @@ procedure main()
 	u32 tau[4] = {1634760805, 824206446, 2036477238, 1797285236}
 	u32 seq[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	u32 k0[4] = {67305985, 134678021, 202050057, 269422093}
-	u32 k1[4] = {-859059511, -791687475, -724315439, -656943403}
+	u32 k1[4] = {3435907785, 3503279821, 3570651857, 3638023893}
 	u32 n[4] = {1751606885, 1818978921, 1886350957, 1953722993}
 	u32 out_s[16]
 
@@ -211,7 +211,7 @@ procedure main()
 	call Chacha20_encrypt(seq, out_s)
 	print("String encrypted:")
 	show(seq)
-	call Chacha20_encrypt(seq, out_s)
+	call Chacha20_encrypt(seq, out_s) //since it's doing a XOR, it can be both `call` or `uncall`
 	print("String decrypted:")
 	show(seq)
 	
