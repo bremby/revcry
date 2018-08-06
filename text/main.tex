@@ -129,20 +129,19 @@ Abstract
 \setcounter{page}{1}
 
 
-%\cftaddnumtitleline{toc}{chapter}{Preface}{}{}%
-\cftaddnumtitleline{toc}{chapter}{Preface}{}{\arabic{page}}%
-\chapter*{Preface}
+%%\cftaddnumtitleline{toc}{chapter}{Preface}{}{}%
+%\cftaddnumtitleline{toc}{chapter}{Preface}{}{\arabic{page}}%
+%\chapter*{Preface}
 
-Preface and acknowledgements if you like to have this.
+%Preface and acknowledgements if you like to have this.
 
 
 
 \cleardoublepage
-%\cftaddnumtitleline{toc}{chapter}{Preface}{}{}%
-\cftaddnumtitleline{toc}{chapter}{List of Abbreviations}{}{\arabic{page}}%
-\chapter*{List of Abbreviations}
+%%\cftaddnumtitleline{toc}{chapter}{Preface}{}{}%
+%\cftaddnumtitleline{toc}{chapter}{List of Abbreviations}{}{\arabic{page}}%
+%\chapter*{List of Abbreviations}
 
-....
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -155,8 +154,8 @@ Preface and acknowledgements if you like to have this.
 %Overview of the context, current problems and difficulties, discussion 
 %of current solutions, our solution and its short evaluation.
 
-Cryptography in general has been with us for decades now, yet only 
-recently we finally figured out how to reliably code and verify an 
+Cryptography has been with us for decades now, yet only 
+recently we figured out how to reliably code and verify an 
 actual implementation with the F*/HACL work \cite{ProtzenkoEtal:2017}. 
 A similar approach takes the Vale project \cite{BondEtal:2017:Vale}, 
 designing a new language that utilizes either Dafny or F* for 
@@ -166,13 +165,10 @@ in the case of Vale, even timing-based leakage. These two are possibly
 the easiest side-channel vulnerabilities to exploit, especially given 
 the fact that physical access to the computer is not necessary. Both of 
 them can get difficult to control for since the compiler often provides 
-no guarantees on the generated machine code. Similarly, programming 
+no guarantees on the generated machine code. Similarly, general high-level programming 
 languages do not provide semantics on low enough level to account for 
 registers, caches and execution timing. Vale provides for these, which 
-allows it to formally verify the cryptographic properties; on the other 
-hand, it also makes the language difficult to learn and use due to the 
-sheer breadth of details the programmer now has to consider, instead of 
-leaving it to the compiler.
+allows it to formally verify the required cryptographic properties.
 
 Our work aims for exploiting reversible computing to reason about 
 state-based leakage. Informally, a reversible program has to follow a 
@@ -192,7 +188,7 @@ such the function would not be injective, thus irreversible, or the
 ciphertext would somehow contain the key, which would make the 
 encryption useless by making the key public. 
 
-In Janus we enforce this scheme by offloading any other data into 
+In Janus we enforce this scheme by offloading any other data (\eg algorithm-specific magic constants or iterators) into 
 temporary local variables. These variables are declared and defined at 
 the top of a function and undeclared at the bottom, with their final 
 value specified. This final value is necessary for reversibility: 
@@ -201,9 +197,8 @@ Secondly, because we know the final value of each variable, that value
 can be subtracted from the variable, thus clearing it. This implies 
 that local data, not part of the input and output, will be cleared and 
 thus no state-based leakage is possible. We demonstrate this by 
-translating a Janus program to C, annotating it using special keywords 
-for a LLVM plugin and compiling into machine code that can be manually 
-verified to clean up used memory.
+translating a Janus program to C and executing it within a virtual 
+environment that tracks secret data (see chapter \ref{sec:eval}).
 
 Furthermore, thanks to reversibility we implement only the encryption 
 functions. The decryption is then obtained by reversing the encryption. 
@@ -213,25 +208,79 @@ showing the duality of encryption and decryption functions.
 Our conclusion is that reversibility is a handy tool for developing not 
 only cryptographic code, but also other injective functions. It gives 
 no guarantees on avoiding timing vulnerabilities like Vale does, 
-however it comes at a much lower cost of development.
-
-
-
-
-???
-
-The reason for 
-vulnerabilities based on the implementation and not the mathematical 
-basis of the algorithm is usually performance, simplicity, inexperience 
-and even language and/or compiler support for low-level semantics.
+however it comes at a much lower cost of development. We also take note 
+of the difficulty to learn and use Vale due to the sheer breadth of 
+details the programmer has to consider, instead of leaving it to the 
+compiler.
 
 
 
 
 
+%The reason for 
+%vulnerabilities based on the implementation and not the mathematical 
+%basis of the algorithm is usually performance, simplicity, inexperience 
+%and even language and/or compiler support for low-level semantics.
+
+
+
+
+\section{Goals}
+\label{sec:goals}
+
+Our aim is to explore the combination of reversibility and 
+cryptography. Irreversible implementations of crypto algorithms often 
+either suffer from insufficiencies from the security perspective or are 
+difficult to implement correctly. Due to performance being also 
+critical, programmers have to actively fight compilers to make sure 
+their code is safe. Our main goal is to alleviate that in at least some 
+way. Reversible code is limited in how it manages memory - no erasure 
+is allowed, and so deallocations have to be preceded by proper 
+cleanup. Reversible algorithms can follow a much cleaner formal 
+definition that does not leak memory contents outside the scope of 
+those functions.
+
+The second goal is to exploit the bijectivity of crypto algorithms. 
+Decryption is just an inverse function to encryption, so only one of them 
+needs coding. This lowers the implementation and debugging time demands.
+
+The third goal is getting some practical experience with Janus, finding 
+its strenghts and weaknesses and suggesting improvements.
+
+\section{Problem statement}
+
+Classic irreversible implementations of encryption schemes suffer from 
+human errors making them vulnerable to side-channel exploits. 
+Reversible implementation removes one type of side-channel and has 
+potential to alleviate the cost of development and debugging.
 
 \section{Overview of the chapters}
 
+Apart from the Introduction, these are the chapters and their short 
+summaries this thesis builds upon:
+
+\begin{description}
+
+\item[Analysis] Presents short introduction to cryptography, discusses 
+the practical problems with side-channel vulnerabilities, and explores 
+reversible computing and its implications in the context of 
+cryptography.
+
+\item[Design] Talks about how we approach the problem with a selection 
+of algorithms, their expected behaviour and how we can verify a lack of 
+state leakage.
+
+\item[Implementation] This chapter focuses on writing the selected 
+algorithms in Janus and the practical experience of it.
+
+\item[Evaluation] Here we discuss how we verify our claims, then 
+suggest and perform some experiments to do that. We also look at how we 
+can work around the problem of not having a fully reversible platform. \todo{do the last sentence}
+
+\item[Reflection and future work] We reflect on how well our solution 
+can work in practice, and what else needs to or should be done. \todo{do so}
+
+\end{description}
 
 \chapter{Analysis}
 
@@ -271,7 +320,7 @@ for decryption (a \term{private key}). Its security relies on some hard
 mathematical problems like integer factorization in the case of RSA. If 
 that could somehow be performed as fast as the factor multiplication, 
 it would render the whole algorithm broken. It does not achieve the 
-same levels of performance \cite{sym-asym}. For that reason it is not 
+same levels of performance \cite{sym-asym} and for that reason it is not 
 considered lightweight. It can, however, be used for so-called hybrid 
 encryption schemes, where PKI is used to exchange the secret key for 
 some symmetric algorithm.
@@ -279,7 +328,7 @@ some symmetric algorithm.
 \subsection{Definition}
 
 Formally we use the following notation to describe a function 
-\enc that fits the description above:
+$\enc_S$ and its inverse $\dec_S$ that fits the description above:
 
 \begin{align*}
 \enc_S(k,p) = (k,c) \\
@@ -313,20 +362,28 @@ The mathematical basis upon which cryptographic algorithms are built is
 only one half of the story when it comes to evaluating data security. 
 The other half are their implementations, which have a long history of 
 hidden vulnerabilities in various forms. These are often split into two 
-groups: incorrect implementation (software bugs, state-based leakages) 
-and so-called \term{side-channel vulnerabilities}, \term{side-channel 
-information leakages} or just \term{side-channels} for short. The first 
-group consists of attacks on weaknesses in the software implementation, 
-mostly state information leakage via registers and/or memory, \ie not 
-clearing memory containing sensitive data \cite{Chow:2004}. The second 
-group is classified into several subgroups depending on the type of the 
-attack, \eg power consumption and electromagnetic radiation analyses 
-\cite{Spreitzer:2016}. A timing-based attack exploits different running 
-times of the algorithm depending on its inputs. Arguably, this kind of 
-attack could be classified as both a software bug, since it can be 
-often circumvented in code, but the source of the problem often lies 
-within the processor itself (instructions themselves being 
-timing-sensitive based on input \cite{TimingRC5}).
+groups\footnote{A word on the classification: the grouping provided 
+here follows other sources. From a second perspective, state-based 
+leakages can also be considered a side-channel, since the mathematical 
+concept of cryptography does not deal with how memory is handled. We 
+can counter such argument by saying that the state, especially the key 
+and the plaintext, should remain secret no matter the code. 
+Nevertheless, the classification is only secondary for our 
+purposes.}:incorrect implementation (software bugs, state-based 
+leakages) and so-called \term{side-channel vulnerabilities}, 
+\term{side-channel information leakages} or just \term{side-channels} 
+for short. The first group consists of attacks on weaknesses in the 
+software implementation, mostly state information leakage via registers 
+and/or memory, \ie not clearing memory containing sensitive data 
+\cite{Chow:2004}. The second group is classified into several subgroups 
+depending on the type of the attack, \eg power consumption and 
+electromagnetic radiation analyses \cite{Spreitzer:2016}. A 
+timing-based attack exploits different running times of the algorithm 
+depending on its inputs. Arguably, this kind of attack could be 
+classified as both a software bug, since it can be often circumvented 
+in code, but the source of the problem often lies within the processor 
+itself (instructions themselves being timing-sensitive based on input 
+\cite{TimingRC5}).
 
 The easiest (in terms of required prerequisites) are state-based and 
 timing-based leakages, since they can be performed remotely and do not 
@@ -624,29 +681,6 @@ secondly, most of such code is also imperative, not functional.
 Furthermore, a new development of this language was just under way, so 
 it made sense to stick to a more stable and workable tool.
 
-
-\section{Goals}
-\label{sec:goals}
-
-Our aim is to explore the combination of reversibility and 
-cryptography. Irreversible implementations of crypto algorithms often 
-either suffer from insufficiencies from the security perspective or are 
-difficult to implement correctly. Due to performance being also 
-critical, programmers have to actively fight compilers to make sure 
-their code is safe. Our main goal is to alleviate that in at least some 
-way. Reversible code is limited in how it manages memory - no erasure 
-is allowed, and so deallocations have to be preceded by proper 
-cleanup. Reversible algorithms can follow a much cleaner formal 
-definition that does not leak memory contents outside the scope of 
-those functions.
-
-The second goal is to exploit the bijectivity of crypto algorithms. 
-Decryption is just an inverse function to encryption, so only one of them 
-needs coding. This lowers the implementation and debugging time demands.
-
-The third goal is getting some practical experience with Janus, finding 
-its strenghts and weaknesses and suggesting improvements.
-
 %\section{Terminology}
 
 %directly reversible = an injective function -- wtf??? so how's Bennett's trick related to that?
@@ -682,7 +716,8 @@ Note that these algorithms fit in the \textbf{ARX} group as they are
 based on three operations: \textbf{A}ddition, \textbf{R}otation and 
 \textbf{X}OR operation. This makes them somewhat similar, but they are 
 still different enough to validate our choices; from very simple to 
-complex, block and stream ciphers, old and new. 
+complex, block and stream ciphers, old and new. The advantage is that 
+all these three operations are trivially reversible.
 
 \subsection{TEA}
 
@@ -704,10 +739,13 @@ void encrypt (uint32_t* v, uint32_t* k) {
     v[0]=v0; v[1]=v1;
 }
 \end{lstlisting}
+\textit{\footnotesize Source: Wikipedia}\\
 
 The decryption procedure is analogous. Both procedures take two 
 arguments, a key and some data, and perform the necessary operations; 
-if we removed the local variables \code{v*} and \code{k*}, the changes 
+if we avoided using the local variables \code{v0}, \code{v1}, \code{k0} 
+and \code{k1} and replaced them by what they actually refer to, \ie 
+\code{v[0]}, \code{v[1]}, \code{k[0]} and \code{k[1]}, the changes 
 would be performed in-place, thus avoiding spilling any secrets 
 anywhere else in memory, except for processor registers.
 
@@ -745,7 +783,7 @@ void RC5_ENCRYPT(uint32_t *v, uint32_t *S, int rounds)
    v[0] = A; v[1] = B;
 }
 \end{lstlisting}
-\textit{\footnotesize Source: Wikipedia, RC5 paper}\\
+\textit{\footnotesize Sources: Wikipedia, RC5 paper}\\
 
 Just like with TEA, the encryption can be performed in-place. Unlike 
 TEA, the procedure technically asks for a third parameter, a number of 
@@ -807,14 +845,13 @@ at the paper establishing RC5, we find this note:
 ``one-wayness'': it is not so easy to determine K from S.''}
 
 For our purpose, which is re-writing the procedure in a reversible 
-language, does not sound encouraging. On the other hand, we know that 
+language, that does not sound encouraging. On the other hand, we know that 
 we can make anything reversible using a Bennett's trick at worst. The 
 solution is simple: these statements are actually not 
 mutually-exclusive: the fact is that S is not the only result of the 
 expansion function, because both S and L get updated so that they are 
-dependent on each other. So it is true that getting S from K is not 
-easy, but it is easy to get K from both S and L. Given our scenario, 
-that is still something to be considered.
+dependent on each other. So it is true that getting K from S is not 
+easy, but it is easy to get K from both S and L.
 
 \subsection{Salsa20 and Chacha20}
 
@@ -839,7 +876,7 @@ discussed in section \ref{sec:impl:salsa}.
 
 \subsection{Simon and Speck}
 
-Finally we discuss two ciphers infamously designed by NSA, the American 
+Finally we discuss two ciphers designed by NSA, the American 
 intelligence agency. We wanted to see whether reversibility has any 
 potential to reveal crypto algorithm weaknesses. Nothing specific was 
 discovered except a general sense of difficulty implementing them. 
@@ -928,7 +965,12 @@ is preserved.
 
 \chapter{Implementation}
 
-%Here we show our implementations, prove their correctness and discuss them.
+In this chapter we show our Janus code for the selected algorithms and 
+discuss it. We talk about the conversion from irreversible to 
+reversible and even come up with improvements to Jana, the Janus 
+interpreter.
+
+
 \section{Algorithms}
 
 \subsection{TEA}
