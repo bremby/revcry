@@ -1103,8 +1103,12 @@ loop. encryption function has wrong api, it should do changes in-place}
 In case of Salsa20, we are not taking existing C code or pseudocode and 
 translating it into Janus. We are following a precise mathematical 
 formulation that is presented in the specification\cite{salsa}. As a 
-result, we do not compare our implementation with C code anymore. 
-We focus solely on Janus instead.
+result, we do not compare our implementation with C code anymore. We 
+focus solely on Janus instead. We also focus on the difficult or 
+annoying parts of the implementation by suggesting enhancements to 
+Janus.
+
+\paragraph{First enhancement}
 
 The first issue appeared with the quarterround function. Initially, a 
 misunderstanding of the specification resulted in applying the second 
@@ -1205,15 +1209,122 @@ same as the hand-written code. This extension would allow for replacing
 the 22-line procedure with a 5-line function with the same semantics 
 and much better readability.
 
+\paragraph{Second enhancement}
+
+The obvious second hassle is the way we exchange values between 
+a temporary array and the original array in the cases of the 
+\code{doubleround} (only Chacha20), and \code{columnround} and 
+\code{rowround} (only Salsa20) procedures. This is only caused by the 
+need to access different elements in an array. This is the current form 
+of the code:
+
+\begin{lstlisting}[language=Janus]
+procedure rowround(u32 seq[16])
+	local u32 tmp_row[4]
+	...
+	// third row
+	tmp_row[0] <=> seq[10]
+	tmp_row[1] <=> seq[11]
+	tmp_row[2] <=> seq[8]
+	tmp_row[3] <=> seq[9]
+	call quarterround(tmp_row)
+	tmp_row[0] <=> seq[10]
+	tmp_row[1] <=> seq[11]
+	tmp_row[2] <=> seq[8]
+	tmp_row[3] <=> seq[9]
+	...
+	delocal u32 tmp_row[4]
+\end{lstlisting}
+
+With this example (and considering the rest of the procedure) we see 
+the need to access 4 elements, in two consecutive ranges. In the next 
+listing we are accessing columns also in two ranges:
+
+\begin{lstlisting}[language=Janus]
+procedure columnround(u32 seq[16])
+	local u32 tmp_col[4]
+	...
+	// second row
+	tmp_col[0] <=> seq[5]
+	tmp_col[1] <=> seq[9]
+	tmp_col[2] <=> seq[13]
+	tmp_col[3] <=> seq[1]
+	...
+	delocal u32 tmp_col[4]
+\end{lstlisting}
+
+We have taken a different approach with Chacha20's \code{doubleround} 
+procedure. We changed the \code{quarterround} procedure signature to 
+take the 4 elements as single arguments instead of as a single array. 
+This simplified the \code{doubleround} procedure significantly:
+
+\begin{lstlisting}[language=Janus]
+procedure doubleround(u32 seq[16])
+	...
+	// third diagonal
+	call quarterround(seq[2], seq[7], seq[8], seq[13])
+	...
+\end{lstlisting}
+
+Notice that there is no need for any temporary variable. This approach 
+works, but, to a programmer's eye, it feels too unwieldy. In many other 
+languages, the solution to that is called \term{array slicing}. That is 
+a technique that allows splitting, cutting or \term{slicing} parts the 
+array into a new array. This new array is often not a full array with 
+its own copies of the elements, but only a syntactic sugar, just a 
+mapping to the original array. If we wanted to slice the array 
+according to the Chacha20's \code{doubleround} indexing, we would need 
+either a powerful expression system to describe the complex slices (the 
+diagonals), or a way to pick the elements manually.
+
+%\begin{lstlisting}[language=Janus]
+%procedure doubleround(u32 seq[16])
+	%...
+	%// first diagonal
+	%call quarterround(seq[0], seq[5], seq[10], seq[15])
+	%// second diagonal
+	%call quarterround(seq[1], seq[6], seq[11], seq[12])
+	%// third diagonal
+	%call quarterround(seq[2], seq[7], seq[8], seq[13])
+	%2             % 4  = 2
+	%2 + 5         % 8  = 7
+	%2 + 5 + 5     % 12 = 12 ... - 4 = 8  //bullshit, need to iterate over 4s I think... 2+4+1+4+1 ?
+	%2 + 5 + 5 + 5 % 16 = 17 ... - 4 = 13
+	%call quarterround(seq[(0..3)*4 + (0..3)*5 + 2])
+	%...
+%\end{lstlisting}
+
+
+\begin{lstlisting}[language=Janus]
+procedure doubleround(u32 seq[16])
+	...
+	// third diagonal
+	call quarterround(seq[2,7,8,13])
+	...
+\end{lstlisting}
+
+
+\begin{lstlisting}[language=Janus]
+\end{lstlisting}
 
 \paragraph{Chacha20}
 
 Chacha20, being only a minor update to Salsa20, does not differ 
 dramatically much from its predecessor. The differences consist of 
 different operation ordering and are in the \code{doubleround} and the 
-\code{quarterround} procedures. 
+\code{quarterround} procedures. While Salsa20 has its 
+\code{columnround} and \code{rowround} functions, their code is mixed 
+in together in the Chacha20 variant.
+
+\todo{chacha20 quarterround differs!}
+
+
+
+\section{Simon and Speck}
+
 
 \section{Lack of leakage and translation}
+
 
 
 
