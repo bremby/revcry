@@ -170,6 +170,17 @@ languages do not provide semantics on low enough level to account for
 registers, caches and execution timing. Vale provides for these, which 
 allows it to formally verify the required cryptographic properties.
 
+The range of cryptographic functions is significantly broad, so we are 
+limiting the scope to only lightweight cryptography. The core concepts 
+are the same, \ie side-channel vulnerabilities still apply in the same 
+way, but the algorithms can be a lot simpler. Secondly, lightweight 
+cryptography is interesting in its own sense due to its own application 
+within \term{Internet of Things (IoT)} systems. These systems are 
+limited in processor performance, power consumption, memory size, 
+connectivity and even reaction times (real-time systems). In such 
+cases, lightweight cryptography is useful in providing enough security 
+even with limited resources.
+
 Our work aims for exploiting reversible computing to reason about 
 state-based leakage. Informally, a reversible program has to follow a 
 clearly defined path that transforms the input data to output data 
@@ -312,7 +323,7 @@ which only generate seemingly random output which is then combined with
 the input data (plaintext or ciphertext) using some self-inverting 
 operation, typically XOR. Therefore stream ciphers only implement this 
 "random" output and not individual encryption and decryption functions, 
-since they are trivial and equivalent.
+since those are trivial and equivalent.
 
 Asymmetric cryptography, also known as \term{Public Key Cryptography 
 (PKI)}, uses one key for encryption (a \term{public key}) and another 
