@@ -30,6 +30,8 @@
 % Janus listings
 \usepackage{lstjanus}
 
+
+
 \lstset{language=C,
         basicstyle=\footnotesize\ttfamily,
         keywordstyle=\bfseries\color{blue},
@@ -400,7 +402,7 @@ The easiest (in terms of required prerequisites) are state-based and
 timing-based leakages, since they can be performed remotely and do not 
 require any specialized hardware. Because of that, they tend to be the 
 focus of contemporary research in the area 
-\cite{BondEtal:2017:Vale}\cite{whatyouc:2018}.
+\cite{BondEtal:2017:Vale}\cite{whatyouc}.
 
 \subsection{Examples}
 
@@ -424,7 +426,7 @@ int login()
 In the above example, the memory pointed to by the \code{password} 
 variable is supposed to be cleared out using the \code{memset} 
 function, but since the memory is not being used anymore, optimizing 
-compilers remove that call completely\cite{whatyouc:2018}.
+compilers remove that call completely\cite{whatyouc}.
 
 An example of a timing vulnerability is in the case of the RC5 
 algorithm \cite{TimingRC5}, which uses bitwise rotation, where the 
@@ -677,7 +679,7 @@ is provided at the end of \cite{Yokoyama2010}), but so far \term{Janus}
 has proven most useful. It has an actively developed interpreter in 
 Haskell, another interpreter in JavaScript, which enables running code 
 in a web browser and it was also extended several times 
-\cite{janus}. Janus is a (semi-)high-level C-like language, which 
+\cite{janus-topps}. Janus is a (semi-)high-level C-like language, which 
 makes it a fit for comparing implementations with actual C code. Author 
 also has to acknowledge the fact that one of the supervisors is the 
 developer of the interpreter in Haskell, and our cooperation has 
@@ -1424,6 +1426,32 @@ situation.
 
 \end{description}
 
+The last step is somewhat problematic. During the experimentation an 
+issue with the combination of \term{secretgrind} and \term{zerostack} 
+appeared. To be fully effective, \term{zerostack} requires all linked 
+libraries, including \code{libc}, to be also modified with cleanup 
+code. The author of \term{zerostack} chose \code{musl-libc} for its 
+simplicity, which reduces potential problems during compilation. 
+However, it appears \code{secretgrind} does not cooperate very well 
+with that library, as any attempts to trace binaries, that are linked 
+with \term{zerostack}-enabled \code{libc}, results in various errors. 
+At least one of them suggests \term{secretgrind} is somehow sensitive 
+to the choice of \code{libc}, even though the original version, 
+\term{taintgrind}, should not be\footnote{Confirmed by its author over 
+e-mail.}. This means we will resort to manual examination of the 
+executable binary file.
+
+On a last note, the reason to use \term{zerostack} at all is just 
+usefulness. At this time, reversible hardware is not available. 
+Reversible platforms, which would simulate reversible hardware, are 
+either not commonly available, or just not practically feasible for any 
+serious application. For our research to be usable in the real world, 
+\ie taking the advantages of reversible embedding out of the 
+reversible-only world, we translate the Janus code and make sure the 
+code keeps the necessary guarantees. \term{Zerostack} offers us the 
+proper cleanup on every function/procedure exit, thus avoiding 
+information leakage.
+
 \section{implementations}
 
 \todo{explain edits to translated code and reference chacha implementation}
@@ -1602,6 +1630,88 @@ Total bytes tainted: 64
 
 \subsection{Step 4: Zerostack substitution}
 
+\term{Zerostack} offers three types of operation, differing by what 
+they are based on: \term{function}, \term{stack} and finally 
+\term{call-graph}. We tested all three and found the stack-based 
+operation unoperational due to a crash in the LLVM compiler\todo{check 
+my zerostack-github issue on this}. The first one, function-based 
+solution, is the simplest one but also reportedly\cite{whatyouc} the 
+most performance-hindering one. The call-graph-based type of operation 
+is the most efficient one, truly erasing only what is necessary. It is 
+also the most complex one. Details of their implementation is left to 
+their original paper\cite{whatyouc}, but we at least look at the 
+resulting assembly code, which will become useful later.
+
+Starting with a normally compiled binary, we get a normal function 
+epilogue (in this case, it is the \code{TEA\_encipher} function):
+
+\begin{verbatim}
+  400904:	48 83 c4 20          	add    $0x20,%rsp
+  400908:	5d                   	pop    %rbp
+  400909:	c3                   	retq   
+  40090a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+\end{verbatim}
+
+The first two instructions revert the stack-related registers 
+\code{rsp} and \code{rbp} to their original values and the third one 
+performs the return from the function. The last line contains a multi-byte 
+\code{nop} instruction and only serves as a padding.
+
+
+%\begin{verbatim}
+  %...
+  %400866:       41 81 f8 20 37 ef c6    cmp    $0xc6ef3720,%r8d
+  %40086d:       89 57 04                mov    %edx,0x4(%rdi)
+  %400870:       75 ae                   jne    400820 <_Z20TEA_encipher_forwardPjS_+0x10>
+%### epilogue starts here
+  %400872:       f3 c3                   repz retq 
+  %400874:       66 66 66 2e 0f 1f 84    data16 data16 nopw %cs:0x0(%rax,%rax,1)
+  %40087b:       00 00 00 00 00
+%\end{verbatim}
+
+%The \code{retq} instruction performs the return from the function, 
+%while the \code{repz} modifier is a bug workaround\footnote{In short, 
+%it avoids prediction penalty with some AMD processors. See 
+%\cite{repzret} for details.}. The following line is a multi-byte 
+%\code{nop} instruction and only serves as a padding.
+
+Now we utilize the function-based cleanup:
+
+\begin{verbatim}
+  400934:	48 83 c4 20          	add    $0x20,%rsp
+  400938:	5d                   	pop    %rbp
+  400939:	48 31 c0             	xor    %rax,%rax
+  40093c:	b9 46 00 00 00       	mov    $0x46,%ecx
+  400941:	48 8d bc 24 d0 fd ff 	lea    -0x230(%rsp),%rdi
+  400948:	ff 
+  400949:	f3 48 ab             	rep stos %rax,%es:(%rdi)
+  40094c:	48 31 c9             	xor    %rcx,%rcx
+  40094f:	31 d2                	xor    %edx,%edx
+  400951:	48 31 f6             	xor    %rsi,%rsi
+  400954:	c3                   	retq   
+  400955:	66 66 2e 0f 1f 84 00 	data16 nopw %cs:0x0(%rax,%rax,1)
+  40095c:	00 00 00 00 
+\end{verbatim}
+
+The original instructions are still there, but just before the function 
+return we see 7 instructions which perform the cleanup. There are 4 
+\code{xor} instructions that take a single register twice, thus 
+clearing it. The other 3 instructions zero out the stack: the 
+\code{mov} instruction sets a counter in the \code{ecx} register, the 
+\code{lea} instruction sets the starting address and finally \code{rep 
+stos} clears out the stack memory.
+
+\begin{verbatim}
+\end{verbatim}
+
+
+\begin{verbatim}
+\end{verbatim}
+\begin{verbatim}
+\end{verbatim}
+
+
+
 \todo{Since I can't get zerostack and secretgrind working together, I 
 want to show how zerostack zeroes out memory (e.g. the instructions 
 injected, their location and what it erases) and compare it to the 
@@ -1609,7 +1719,9 @@ non-erasing binary that we run under secretgrind. I can manually show
 that zerostack would erase those leaking memory locations.}
 
 \todo{what about memset\_s? could I use it with secretgrind? it would 
-also be simpler to add to Jana's output}
+also be simpler to add to Jana's output; but it doesn't erase registers 
+and requires multiple calls to erase stack (one per each stack 
+variable)}
 
 \chapter{Reflections}
 
