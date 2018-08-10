@@ -1461,10 +1461,14 @@ information leakage.
 \subsection{Step 1: Translation}
 
 The code is translated using Jana. There are no manual modifications to 
-make the code compile. We use the older version of translation due to 
-added complexity in recent Jana versions. Originally Jana used a direct 
-translation to C-style arrays, that was substituted by 
-\code{std::array} for a short time and then by \code{std::vector}. 
+make the code compile, however there are some modifications in order to 
+perform the experiment. One set of modifications is done so that we 
+\term{secretgrind} has tainted memory to track. A second set of 
+modifications is done in compliance with \term{zerostack}, and those 
+will be explained in the last step. We use the older version of 
+translation due to added complexity in recent Jana versions. Originally 
+Jana used a direct translation to C-style arrays, that was substituted 
+by \code{std::array} for a short time and then by \code{std::vector}. 
 Reason for the replacement of C-style arrays was keeping some record of 
 the size of the array. Janus interpreter has a keyword \code{size}, 
 which returns the size of the array, since it is always known as it 
@@ -1484,7 +1488,7 @@ also add a function for reading from a file. This function uses the
 \code{read()} function, since that is simple enough to avoid confusion 
 and complexity when tracked by \term{secretgrind}. For the same reason 
 we also disable code that prints out the contents of arrays - prior 
-experiments have shown that functions like \code{scanf} manipulate and 
+experiments have shown that functions like \code{printf} and \code{scanf} manipulate and 
 taint more memory.
 
 \subsection{Step 3: Taint tracking}
@@ -1642,64 +1646,133 @@ also the most complex one. Details of their implementation is left to
 their original paper\cite{whatyouc}, but we at least look at the 
 resulting assembly code, which will become useful later.
 
-Starting with a normally compiled binary, we get a normal function 
-epilogue (in this case, it is the \code{TEA\_encipher} function):
+\paragraph{Manual modifications}
+
+First we make some modifications so that all our compilation passes 
+execute correctly:
+
+\begin{itemize}
+
+\item We comment out the XTEA-* and XXTEA-* functions because we do not 
+need them for this part of the experiment.
+
+\item We change the return value of the TEA-* functions from 
+\code{void} to \code{int} and append \code{"return 0;"} at the end of 
+each of them. This is only so that the patching process for the 
+call-graph method works. The patching script also required some fixing: 
+we had to add assembler code that zeroes out the \code{r8d} register 
+using the \code{xor} instruction.
 
 \begin{verbatim}
-  400904:	48 83 c4 20          	add    $0x20,%rsp
-  400908:	5d                   	pop    %rbp
-  400909:	c3                   	retq   
-  40090a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+diff --git a/examples/fpointer/patchme.py b/examples/fpointer/patchme.py
+index 680d58f..a06ac95 100755
+--- a/examples/fpointer/patchme.py
++++ b/examples/fpointer/patchme.py
+@@ -699,7 +699,8 @@ class Dispatcher:
+                                                "EAX"   :       "\x31\xC0",
+                                                "EDX"   :       "\x31\xD2",
+                                                "ESI"   :       "\x31\xF6",
+                                                
+
++                                               "R8D"   :       "\x45\x31\xC0", 
+                                                "R9D"   :       "\x45\x31\xC9",
+                                                "R10D"  :       "\x45\x31\xD2",
+                                                # 16bit register		
 \end{verbatim}
 
-The first two instructions revert the stack-related registers 
-\code{rsp} and \code{rbp} to their original values and the third one 
-performs the return from the function. The last line contains a multi-byte 
-\code{nop} instruction and only serves as a padding.
+\item We define a macro for defining sensitive functions, which is used 
+by the call-graph method. We then use that macro to annotate our two 
+TEA-* functions.
+
+\begin{verbatim}
+#define __attr_zerostack __attribute__((annotate("SENSITIVE")))
+
+__attr_zerostack int TEA_encipher_forward(unsigned int *data, unsigned int *key);
+__attr_zerostack int TEA_encipher_reverse(unsigned int *data, unsigned int *key);
+\end{verbatim}
+
+\item We comment out the \code{assert} checks at the end of the TEA-* 
+functions. This is also due to a problem with compilation with 
+\term{zerostack} enabled.
+
+\end{itemize}
 
 
-%\begin{verbatim}
-  %...
-  %400866:       41 81 f8 20 37 ef c6    cmp    $0xc6ef3720,%r8d
-  %40086d:       89 57 04                mov    %edx,0x4(%rdi)
-  %400870:       75 ae                   jne    400820 <_Z20TEA_encipher_forwardPjS_+0x10>
-%### epilogue starts here
-  %400872:       f3 c3                   repz retq 
-  %400874:       66 66 66 2e 0f 1f 84    data16 data16 nopw %cs:0x0(%rax,%rax,1)
-  %40087b:       00 00 00 00 00
-%\end{verbatim}
+\paragraph{Compiling and analyzing}
 
-%The \code{retq} instruction performs the return from the function, 
-%while the \code{repz} modifier is a bug workaround\footnote{In short, 
-%it avoids prediction penalty with some AMD processors. See 
-%\cite{repzret} for details.}. The following line is a multi-byte 
-%\code{nop} instruction and only serves as a padding.
+Starting with a normally compiled\footnote{In all the shown cases we 
+used the \code{-O0} option to disable optimizations.} binary, we get a 
+normal function epilogue (in this case, it is the \code{TEA\_encipher} 
+function). The output depends on what compiler we use. The output of 
+\code{g++} looks like this:
+
+
+\begin{verbatim}
+  400823:       b8 00 00 00 00          mov    $0x0,%eax
+  400828:       5d                      pop    %rbp
+  400829:       c3                      retq
+\end{verbatim}
+
+The first instruction sets the register \code{eax} to zero, which is 
+then used as the return value. The second one resets the stack frame 
+pointer in register \code{rbp} and the \code{retq} instruction performs 
+the return from the function.
+
+LLVM's \code{clang} outputs this:
+
+\begin{verbatim}
+  400840:       31 c0                   xor    %eax,%eax
+  400842:       5d                      pop    %rbp
+  400843:       c3                      retq   
+  400844:       66 66 66 2e 0f 1f 84    data16 data16 nopw %cs:0x0(%rax,%rax,1)
+  40084b:       00 00 00 00 00 
+\end{verbatim}
+
+Similarly to what g++ produces, we start by clearing \code{eax}, 
+continue with resetting stack frame pointer and exit with a 
+\code{retq}. The last line contains a multi-byte \code{nop} instruction 
+and only serves as a padding. That is also produced by gcc, but only 
+with some optimization enabled.
+
 
 Now we utilize the function-based cleanup:
 
 \begin{verbatim}
-  400934:	48 83 c4 20          	add    $0x20,%rsp
-  400938:	5d                   	pop    %rbp
-  400939:	48 31 c0             	xor    %rax,%rax
-  40093c:	b9 46 00 00 00       	mov    $0x46,%ecx
-  400941:	48 8d bc 24 d0 fd ff 	lea    -0x230(%rsp),%rdi
-  400948:	ff 
-  400949:	f3 48 ab             	rep stos %rax,%es:(%rdi)
-  40094c:	48 31 c9             	xor    %rcx,%rcx
-  40094f:	31 d2                	xor    %edx,%edx
-  400951:	48 31 f6             	xor    %rsi,%rsi
-  400954:	c3                   	retq   
-  400955:	66 66 2e 0f 1f 84 00 	data16 nopw %cs:0x0(%rax,%rax,1)
-  40095c:	00 00 00 00 
+  400860:       31 c0                   xor    %eax,%eax
+  400862:       5d                      pop    %rbp
+  400863:       50                      push   %rax
+  400864:       48 31 c0                xor    %rax,%rax
+  400867:       b9 45 00 00 00          mov    $0x45,%ecx
+  40086c:       48 8d bc 24 d8 fd ff    lea    -0x228(%rsp),%rdi
+  400873:       ff 
+  400874:       f3 48 ab                rep stos %rax,%es:(%rdi)
+  400877:       58                      pop    %rax
+  400878:       48 c7 44 24 f8 fc ff    movq   $0xfffffffffffffffc,-0x8(%rsp)
+  40087f:       ff ff 
+  400881:       48 31 c9                xor    %rcx,%rcx
+  400884:       31 d2                   xor    %edx,%edx
+  400886:       89 c0                   mov    %eax,%eax
+  400888:       c3                      retq   
+  400889:       0f 1f 80 00 00 00 00    nopl   0x0(%rax)
 \end{verbatim}
 
 The original instructions are still there, but just before the function 
-return we see 7 instructions which perform the cleanup. There are 4 
-\code{xor} instructions that take a single register twice, thus 
-clearing it. The other 3 instructions zero out the stack: the 
-\code{mov} instruction sets a counter in the \code{ecx} register, the 
-\code{lea} instruction sets the starting address and finally \code{rep 
-stos} clears out the stack memory.
+return we see 10 instructions which perform the cleanup. There are 3 
+\code{xor} instructions that take a single register twice, thereby 
+clearing it. The rest is slightly chaotic. \code{rax} gets pushed to 
+stack for later, then cleared. The three following instructions, 
+\code{mov}, \code{lea} and \code{rep stos} clear the stack by setting a 
+counter, setting the starting address and repeatedly writing zeroes, 
+respectively\footnote{0x45 * 8 = 0x228, \ie it writes 0x45-times 8 
+bytes to overwrite the whole stack @[\%rsp-0x228, \%rsp].}. Then we 
+reload \code{rax} from stack and overwrite that value with 
+-4\footnote{Reason for that value is unknown. Reading the source 
+revealed the intent of overwriting the pushed register, but no 
+explanation for that value.}. Finally, the strange-looking \code{mov 
+\%eax,\%eax} instruction clears the higher 32 bits of the \code{rax} 
+register.
+
+
 
 \begin{verbatim}
 \end{verbatim}
