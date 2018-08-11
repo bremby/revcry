@@ -1590,13 +1590,13 @@ Expected bytes tainted: 64 (16*4)
 %from the output with the total number of bytes tainted at the bottom:
 
 %\begin{verbatim}
-%log_chacha-ref.txt:11: ***(1) (stack)	 range [0xffefffbb0 - 0xffefffbef]	 (64 bytes)	 is tainted
-%log_chacha-ref.txt:90: ***(2) (stack)	 range [0xffefffc00 - 0xffefffc03]	 (4 bytes)	 is tainted
-%log_chacha-ref.txt:96: ***(1) (stack)	 range [0xffefffc30 - 0xffefffc77]	 (72 bytes)	 is tainted
-%log_chacha-ref.txt:442: ***(2) (stack)	 range [0xffefffc90 - 0xffefffc93]	 (4 bytes)	 is tainted
-%log_chacha-ref.txt:460: ***(1) (stack)	 range [0xffefffce0 - 0xffefffcff]	 (32 bytes)	 is tainted
-%log_chacha-ref.txt:486: ***(1) (stack)	 range [0xffefffd20 - 0xffefffd2f]	 (16 bytes)	 is tainted
-%log_chacha-ref.txt:492: ***(1) (stack)	 range [0xffefffd40 - 0xffefffdff]	 (192 bytes)	 is tainted
+%***(1) (stack)	 range [0xffefffbb0 - 0xffefffbef]	 (64 bytes)	 is tainted
+%***(2) (stack)	 range [0xffefffc00 - 0xffefffc03]	 (4 bytes)	 is tainted
+%***(1) (stack)	 range [0xffefffc30 - 0xffefffc77]	 (72 bytes)	 is tainted
+%***(2) (stack)	 range [0xffefffc90 - 0xffefffc93]	 (4 bytes)	 is tainted
+%***(1) (stack)	 range [0xffefffce0 - 0xffefffcff]	 (32 bytes)	 is tainted
+%***(1) (stack)	 range [0xffefffd20 - 0xffefffd2f]	 (16 bytes)	 is tainted
+%***(1) (stack)	 range [0xffefffd40 - 0xffefffdff]	 (192 bytes)	 is tainted
 %Total bytes tainted: 384
 %\end{verbatim}
 
@@ -1605,7 +1605,7 @@ only show an excerpt from the output with the total number of bytes
 tainted at the bottom:
 
 \begin{verbatim}
-log_chacha-ref-nokey.txt:11: ***(1) (stack)	 range [0xffefffd40 - 0xffefffdff]	 (192 bytes)	 is tainted
+***(1) (stack)	 range [0xffefffd40 - 0xffefffdff]	 (192 bytes)	 is tainted
 Total bytes tainted: 192
 \end{verbatim}
 
@@ -1765,36 +1765,208 @@ stack for later, then cleared. The three following instructions,
 counter, setting the starting address and repeatedly writing zeroes, 
 respectively\footnote{0x45 * 8 = 0x228, \ie it writes 0x45-times 8 
 bytes to overwrite the whole stack @[\%rsp-0x228, \%rsp].}. Then we 
-reload \code{rax} from stack and overwrite that value with 
+reload \code{rax} from stack and overwrite that position on stack with 
 -4\footnote{Reason for that value is unknown. Reading the source 
 revealed the intent of overwriting the pushed register, but no 
 explanation for that value.}. Finally, the strange-looking \code{mov 
 \%eax,\%eax} instruction clears the higher 32 bits of the \code{rax} 
 register.
+Clearly this function epilogue correctly clears all registers and used 
+stack so it is usable for our purposes.
 
+Now the last option we consider is the call-graph-based approach, which 
+is performed in two phases, where the first one is the compilation 
+itself. The second one is a patching process, which we already 
+mentioned in relation to this method. The first phase generates most of 
+the final binary code, but the epilogue contains a placeholder for the 
+real cleanup. It also generates a file with information based on the 
+call graph built from the source. The second phase then reads that 
+information and replaces the placeholder with proper epilogue cleanup. 
+There are technical reasons for this division, mainly based on the 
+shortcomings of \code{clang} compiler, but those are not important here.
 
+Below is the unpatched epilogue with the placeholder cleanup:
 
 \begin{verbatim}
+  4006b0:       31 c0                   xor    %eax,%eax
+  4006b2:       5d                      pop    %rbp
+  4006b3:       50                      push   %rax
+  4006b4:       48 31 c0                xor    %rax,%rax
+  4006b7:       b9 67 45 23 01          mov    $0x1234567,%ecx
+  4006bc:       48 8d bc 24 f0 cd ab    lea    -0x76543210(%rsp),%rdi
+  4006c3:       89 
+  4006c4:       f3 48 ab                rep stos %rax,%es:(%rdi)
+  4006c7:       58                      pop    %rax
+  4006c8:       48 c7 44 24 f8 fc ff    movq   $0xfffffffffffffffc,-0x8(%rsp)
+  4006cf:       ff ff 
+  4006d1:       66 66 90                data16 xchg %ax,%ax
+  4006d4:       66 66 90                data16 xchg %ax,%ax
+  4006d7:       66 66 90                data16 xchg %ax,%ax
+  4006da:       66 66 90                data16 xchg %ax,%ax
+  4006dd:       66 66 90                data16 xchg %ax,%ax
+  4006e0:       66 66 90                data16 xchg %ax,%ax
+  4006e3:       66 66 90                data16 xchg %ax,%ax
+  4006e6:       66 66 90                data16 xchg %ax,%ax
+  4006e9:       66 66 90                data16 xchg %ax,%ax
+  4006ec:       66 66 90                data16 xchg %ax,%ax
+  4006ef:       66 66 90                data16 xchg %ax,%ax
+  4006f2:       66 66 90                data16 xchg %ax,%ax
+  4006f5:       66 66 90                data16 xchg %ax,%ax
+  4006f8:       66 66 90                data16 xchg %ax,%ax
+  4006fb:       66 66 90                data16 xchg %ax,%ax
+  4006fe:       66 66 90                data16 xchg %ax,%ax
+  400701:       66 66 90                data16 xchg %ax,%ax
+  400704:       66 66 90                data16 xchg %ax,%ax
+  400707:       66 66 90                data16 xchg %ax,%ax
+  40070a:       66 66 90                data16 xchg %ax,%ax
+  40070d:       c3                      retq   
+  40070e:       66 90                   xchg   %ax,%ax
 \end{verbatim}
 
+There are similarities to the previous method. We see the code starts 
+the same way, only the counter and starting address for the stack 
+zeroing look suspiciously human-produced. Our suspicion is correct, 
+they will be replaced. Below stack cleanup we see exactly 20 
+repetitions of a nop-equivalent instruction\footnote{It is supposed to 
+exhange the value between the \code{ax} register and itself, therefore 
+it has no effect.}. These will also be replaced, and we will see how right 
+below:
 
 \begin{verbatim}
+  4006b0:       31 c0                   xor    %eax,%eax
+  4006b2:       5d                      pop    %rbp
+  4006b3:       50                      push   %rax
+  4006b4:       48 31 c0                xor    %rax,%rax
+  4006b7:       b9 16 02 00 00          mov    $0x216,%ecx
+  4006bc:       48 8d bc 24 50 ef ff    lea    -0x10b0(%rsp),%rdi
+  4006c3:       ff 
+  4006c4:       f3 48 ab                rep stos %rax,%es:(%rdi)
+  4006c7:       58                      pop    %rax
+  4006c8:       48 c7 44 24 f8 fc ff    movq   $0xfffffffffffffffc,-0x8(%rsp)
+  4006cf:       ff ff 
+  4006d1:       31 d2                   xor    %edx,%edx
+  4006d3:       90                      nop
+  4006d4:       48 31 c9                xor    %rcx,%rcx
+  4006d7:       89 c0                   mov    %eax,%eax
+  4006d9:       90                      nop
+  4006da:       66 66 90                data16 xchg %ax,%ax
+  4006dd:       66 66 90                data16 xchg %ax,%ax
+  4006e0:       66 66 90                data16 xchg %ax,%ax
+  4006e3:       66 66 90                data16 xchg %ax,%ax
+  4006e6:       66 66 90                data16 xchg %ax,%ax
+  4006e9:       66 66 90                data16 xchg %ax,%ax
+  4006ec:       66 66 90                data16 xchg %ax,%ax
+  4006ef:       66 66 90                data16 xchg %ax,%ax
+  4006f2:       66 66 90                data16 xchg %ax,%ax
+  4006f5:       66 66 90                data16 xchg %ax,%ax
+  4006f8:       66 66 90                data16 xchg %ax,%ax
+  4006fb:       66 66 90                data16 xchg %ax,%ax
+  4006fe:       66 66 90                data16 xchg %ax,%ax
+  400701:       66 66 90                data16 xchg %ax,%ax
+  400704:       66 66 90                data16 xchg %ax,%ax
+  400707:       66 66 90                data16 xchg %ax,%ax
+  40070a:       66 66 90                data16 xchg %ax,%ax
+  40070d:       c3                      retq   
+  40070e:       66 90                   xchg   %ax,%ax
 \end{verbatim}
+
+First thing we notice is the amount of overwritten stack is much higher 
+at 4272 bytes. That value is pretty large and makes this method more 
+inefficient than the function-based one we discussed before, in 
+contrast to claims in the paper\cite{whatyouc}. This value is 
+overestimated and composes of three components: a signal handler (4096 
+bytes) offset, a red zone offset (128 bytes), and some pre-calculated 
+stack usage (48 bytes). Perhaps a there could be some savings in future 
+improvements of \term{zerostack}.
+
+We also take note that a subset of the 20 \code{xchg} instructions were 
+replaced. The substituting code is exactly the same code as in the 
+function-based method.
+
+\paragraph{Demonstration of execution}
+
+To complete the experiment, we list a trace showing the cleanup. The 
+reference code for XXTEA will serve as the information leaking example 
+and \code{gdb} as the examination tool. We execute the program and stop 
+at the last line, \code{return 0;}. We set the debugger to repeatedly 
+display the contents of the memory where the \code{y} and \code{z} 
+local variables reside\footnote{Displaying \code{y} and \code{z} by 
+variable name does not work as they go out of scope at the end of the 
+function.}.
+
 \begin{verbatim}
+(gdb) p &y
+$3 = (unsigned int *) 0x7fffffffde40
+(gdb) p &z
+$4 = (unsigned int *) 0x7fffffffde44
+(gdb) display *((unsigned int *) 0x7fffffffde40)
+3: *((unsigned int *) 0x7fffffffde40) = 792968749
+(gdb) display *((unsigned int *) 0x7fffffffde44)
+4: *((unsigned int *) 0x7fffffffde44) = 2860056034
 \end{verbatim}
 
+We keep stepping instructions until the \code{rep stos} instruction and 
+observe the output:
 
+\begin{verbatim}
+B+ |0x400901 <xxtea_enc+369>        pop    %rbp                          
+   |0x400902 <xxtea_enc+370>        push   %rax                          
+   |0x400903 <xxtea_enc+371>        xor    %rax,%rax                     
+   |0x400906 <xxtea_enc+374>        mov    $0x49,%ecx                    
+   |0x40090b <xxtea_enc+379>        lea    -0x248(%rsp),%rdi             
+  >|0x400913 <xxtea_enc+387>        rep stos %rax,%es:(%rdi)             
+   |0x400916 <xxtea_enc+390>        pop    %rax                          
+   |0x400917 <xxtea_enc+391>        movq   $0xfffffffffffffffc,-0x8(%rsp)
 
-\todo{Since I can't get zerostack and secretgrind working together, I 
-want to show how zerostack zeroes out memory (e.g. the instructions 
-injected, their location and what it erases) and compare it to the 
-non-erasing binary that we run under secretgrind. I can manually show 
-that zerostack would erase those leaking memory locations.}
+4: *((unsigned int *) 0x7fffffffde44) = 792968749
+3: *((unsigned int *) 0x7fffffffde40) = 2860056034
+\end{verbatim}
 
-\todo{what about memset\_s? could I use it with secretgrind? it would 
-also be simpler to add to Jana's output; but it doesn't erase registers 
-and requires multiple calls to erase stack (one per each stack 
-variable)}
+At some point the output changes the value of the variables to 0. We 
+keep stepping until the \code{ret} instruction to confirm:
+
+\begin{verbatim}
+   |0x400917 <xxtea_enc+391>        movq   $0xfffffffffffffffc,-0x8(%rsp)
+   |0x400920 <xxtea_enc+400>        xor    %rdx,%rdx                     
+   |0x400923 <xxtea_enc+403>        xor    %rsi,%rsi                     
+   |0x400926 <xxtea_enc+406>        xor    %rcx,%rcx                     
+  >|0x400929 <xxtea_enc+409>        retq 
+
+4: *((unsigned int *) 0x7fffffffde44) = 0
+3: *((unsigned int *) 0x7fffffffde40) = 0
+\end{verbatim}
+
+\paragraph{Another alternative}
+
+A recent standard extension, \term{C11}, has added a new function 
+\code{memset\_s} which, unlike its original variant \code{memset}, is 
+guaranteed \textbf{not} to be removed by an optimizing compiler. In 
+theory, we could use it as a substitute for \term{zerostack}, except 
+for two shortcomings:
+
+\begin{enumerate}
+\item it does not and cannot erase registers, and
+\item the programmer would have to make sure it overwrites the right memory range, \textbf{manually}.
+\end{enumerate}
+
+The first point may not be too much of an issue since there is a 
+general shortage of general-purpose registers on x86 machines and thus 
+they get re-used quickly. However, erasing stack can turn difficult: 
+the programmer would have to know the location of the stack and its 
+correct size. If the sensitive function is being updated during 
+development and/or maintenance, the programmer would need to make sure 
+the erasure is still correct. On the other hand, the \code{memset\_s} 
+function can be easily used to zero out data on the heap, and secondly 
+it is supported by a standard and is much more likely to be supported 
+by any compiler.
+
+\paragraph{Conclusion}
+
+We have shown \term{zerostack} is effective and that it erases local 
+data as declared and predicted. Therefore we suggest using it or some 
+analogous tool for erasing sensitive data from stack and registers. We 
+also suggest using \code{memset\_s} in complement.
+
 
 \chapter{Reflections}
 
