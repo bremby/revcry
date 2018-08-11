@@ -1556,7 +1556,7 @@ it interesting to compare to classic irreversible implementation.
 For the testing, we are using the \code{TEA.janus} file, containing all 
 three TEA-family algorithms; we only comment out the TEA and XTEA 
 invocations. For the reference implementation, we make minor edits to 
-the version on Wikipedia\todo{cite or hyperref?}. For input, we load 
+the version on Wikipedia\cite{xxtea-wiki}. For input, we load 
 both key and data for encryption from a file, that will be marked as 
 tainted by \term{secretgrind}. Note that both the key and the data 
 block take up 16 bytes of memory, so a non-leaking implementation 
@@ -1689,14 +1689,14 @@ Total bytes tainted: 64
 \term{Zerostack} offers three types of operation, differing by what 
 they are based on: \term{function}, \term{stack} and finally 
 \term{call-graph}. We tested all three and found the stack-based 
-operation non-operational due to a crash in the LLVM compiler\todo{check 
-my zerostack-github issue on this}. The first one, function-based 
-solution, is the simplest one but also reportedly\cite{whatyouc} the 
-most performance-hindering one. The call-graph-based type of operation 
-is the most efficient one, truly erasing only what is necessary. It is 
-also the most complex one. Details of their implementation is left to 
-their original paper\cite{whatyouc}, but we at least look at the 
-resulting assembly code, which will become useful later.
+operation non-operational due to a crash in the LLVM compiler. The 
+first one, function-based solution, is the simplest one but also 
+reportedly\cite{whatyouc} the most performance-hindering one. The 
+call-graph-based type of operation is the most efficient one, truly 
+erasing only what is necessary. It is also the most complex one. 
+Details of their implementation is left to their original 
+paper\cite{whatyouc}, but we at least look at the resulting assembly 
+code, which will become useful later.
 
 \paragraph{Manual modifications}
 
