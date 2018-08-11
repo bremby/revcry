@@ -92,7 +92,7 @@
 \thesiscomment{} % You can leave this blank
 \title{Lightweight Crypto in Reverse}
 \subtitle{Exploring lightweight cryptography in the context of reversible computing}
-\author{Dominik Táborský}
+\author{Dominik T\'{a}borsk\'{y}}
 \supervisor{Michael Kirkedal Thomsen, Ken Friis Larsen}
 %\date{July 7, 2018} % Hand-in date <<<------------------------<<<-----------------<<<-----------------!!!!!! FILL IN !!!!<<<-------------
 %\subject{The short description that is suitable for a database.} % This is not needed.
@@ -110,7 +110,25 @@
 \cleardoublepage
 \pagestyle{plain}
 \begin{abstract}
-Abstract
+
+The aim of this thesis is to look at cryptography in a reversible 
+computing environment. Reversibility works on the principle that no 
+information can be destroyed during the computation, so any computation 
+can be traced back to the beginning. In a clean setting no information 
+is also unintentionally copied. These features have the implication 
+that any residual information is either known (e.g. null-initialized 
+memory stays zero at the end of the computation, or constants keep 
+their value), or the encryption implementation can be potentially 
+attacked by using the residual information to lower the searched 
+entropy for brute-force decryption.
+
+In an emerging classification of encryption algorithms, we 
+consider \textit{lightweight encryption} algorithms for several 
+reasons: reversible computation has a direct relation to low-power 
+applications, and also the current breed of programming languages is 
+still rather experimental; standard practices have not evolved yet, so 
+preferably simpler algorithms shall be considered first.
+
 \end{abstract}
 
 % Danish abstract
@@ -131,12 +149,28 @@ Abstract
 \setcounter{page}{1}
 
 
-%%\cftaddnumtitleline{toc}{chapter}{Preface}{}{}%
-%\cftaddnumtitleline{toc}{chapter}{Preface}{}{\arabic{page}}%
-%\chapter*{Preface}
+%\cftaddnumtitleline{toc}{chapter}{Preface}{}{}%
+\cftaddnumtitleline{toc}{chapter}{Preface}{}{\arabic{page}}%
+\chapter*{Preface}
 
-%Preface and acknowledgements if you like to have this.
+The present thesis constitutes a 30 ECTS workload and is submitted in 
+partial fulfilment of the requirements for the degree of Master of 
+Science in Computer Science at the University of Copenhagen (UCPH), 
+Department of Computer Science (DIKU).\\
 
+In addition to this text and its appendices, a GitHub repository is 
+available\cite{revcry-github} containing all the related files that are 
+being discussed here.\\
+
+I would like to thank my girlfriend, my new friends in Copenhagen and 
+mainly my supervisors for their enormous support. I have to emphasize 
+the influence Ken and Michael had over me and my work and their 
+friendly and understanding approach to obstacles on the way. I thank 
+them immensely.\\
+\\
+Copenhagen and \v{C}esk\'{e} Bud\v{e}jovice, Summer 2018\\
+\\
+Dominik T\'{a}borsk\'{y}
 
 
 \cleardoublepage
@@ -158,9 +192,9 @@ Abstract
 
 Cryptography has been with us for decades now, yet only 
 recently we figured out how to reliably code and verify an 
-actual implementation with the F*/HACL work \cite{ProtzenkoEtal:2017}. 
-A similar approach takes the Vale project \cite{BondEtal:2017:Vale}, 
-designing a new language that utilizes either Dafny or F* for 
+actual implementation with the \term{F*/HACL} work \cite{ProtzenkoEtal:2017}. 
+A similar approach takes the \term{Vale} project \cite{BondEtal:2017:Vale}, 
+designing a new language that utilizes either \term{Dafny} or \term{F*} for 
 verification. These solutions verify not only the correctness of the 
 code, but also prove the lack of state-based information leakage, and 
 in the case of Vale, even timing-based leakage. These two are possibly 
@@ -253,12 +287,12 @@ cleanup. Reversible algorithms can follow a much cleaner formal
 definition that does not leak memory contents outside the scope of 
 those functions.
 
-The second goal is to exploit the bijectivity of crypto algorithms. 
+The second goal is to exploit the bijection of crypto algorithms. 
 Decryption is just an inverse function to encryption, so only one of them 
 needs coding. This lowers the implementation and debugging time demands.
 
 The third goal is getting some practical experience with Janus, finding 
-its strenghts and weaknesses and suggesting improvements.
+its strengths and weaknesses and suggesting improvements.
 
 \section{Problem statement}
 
@@ -288,7 +322,7 @@ algorithms in Janus and the practical experience of it.
 
 \item[Evaluation] Here we discuss how we verify our claims, then 
 suggest and perform some experiments to do that. We also look at how we 
-can work around the problem of not having a fully reversible platform. \todo{do the last sentence}
+can work around the problem of not having a fully reversible platform.
 
 \item[Reflection and future work] We reflect on how well our solution 
 can work in practice, and what else needs to or should be done. \todo{do so}
@@ -688,7 +722,7 @@ brought many patches, updates and extensions to it.
 Another language that has been considered for this work was RFun, a 
 reversible functional language. However, at the time of writing, RFun 
 was very limited in its abilities, especially when dealing with 
-numbers. Cryptographical code almost always uses some form of bitwise 
+numbers. Cryptographic code almost always uses some form of bitwise 
 operations and those are not available under Peano number arithmetics; 
 secondly, most of such code is also imperative, not functional. 
 Furthermore, a new development of this language was just under way, so 
@@ -763,7 +797,7 @@ would be performed in-place, thus avoiding spilling any secrets
 anywhere else in memory, except for processor registers.
 
 There are two subsequent extensions, named \term{XTEA} and 
-\term{XXTEA}, which improve the cryptographic security. XTEA performes 
+\term{XXTEA}, which improve the cryptographic security. XTEA performs 
 slightly different updates of those \code{v*} variables, but is the 
 same otherwise. XXTEA finally encrypts a whole block of data instead of 
 just two words. It also uses a few more local variables, but the 
@@ -879,7 +913,7 @@ reading the Janus code.
 
 Interestingly, both documents for Salsa20 and Chacha20 mention 
 invertibility unlike other documents. Invertibility referred to the 
-mathematical property of bijectivity rather than reversibility as in 
+mathematical property of bijection rather than reversibility as in 
 our case. Even though invertibility is explicitly mentioned (and 
 required), the code is not reversible directly, as they require some 
 manipulation through a temporary local variable. That is caused by the 
@@ -909,7 +943,7 @@ cannot.
 
 \section{Defining inputs, outputs and expected behaviour}
 
-Thanks to assumed bijectivity, we can define two inputs and two outputs for each of our algorithms. \todo{even RC5?}
+Thanks to assumed bijection, we can define two inputs and two outputs for each of our algorithms. \todo{even RC5?}
 \todo{ Also stream ciphers, watch out}
 
 \section{Verification methods}
@@ -969,7 +1003,7 @@ Lastly, there are projects that offer tracking of sensitive data (or
 rather taints\todo{taints? is this even the right word?}) when moved 
 around in memory. These are \term{taintgrind} and its derivative 
 \term{secretgrind}, with the latter being specifically designed for 
-crypto algorithms. We will be using secretgrind to track tainted data. 
+crypto algorithms. We will be using \term{secretgrind} to track tainted data. 
 This will be in combination with the register and stack clearing 
 method, described above, to make sure nothing of the secret computation 
 is preserved.
@@ -1123,7 +1157,7 @@ Janus.
 
 \paragraph{First enhancement}
 
-The first issue appeared with the quarterround function. Initially, a 
+The first issue appeared with the \code{quarterround} function. Initially, a 
 misunderstanding of the specification resulted in applying the second 
 Bennett's trick like this:
 
@@ -1637,7 +1671,7 @@ Total bytes tainted: 64
 \term{Zerostack} offers three types of operation, differing by what 
 they are based on: \term{function}, \term{stack} and finally 
 \term{call-graph}. We tested all three and found the stack-based 
-operation unoperational due to a crash in the LLVM compiler\todo{check 
+operation non-operational due to a crash in the LLVM compiler\todo{check 
 my zerostack-github issue on this}. The first one, function-based 
 solution, is the simplest one but also reportedly\cite{whatyouc} the 
 most performance-hindering one. The call-graph-based type of operation 
@@ -1828,7 +1862,7 @@ the same way, only the counter and starting address for the stack
 zeroing look suspiciously human-produced. Our suspicion is correct, 
 they will be replaced. Below stack cleanup we see exactly 20 
 repetitions of a nop-equivalent instruction\footnote{It is supposed to 
-exhange the value between the \code{ax} register and itself, therefore 
+exchange the value between the \code{ax} register and itself, therefore 
 it has no effect.}. These will also be replaced, and we will see how right 
 below:
 
@@ -1960,18 +1994,22 @@ function can be easily used to zero out data on the heap, and secondly
 it is supported by a standard and is much more likely to be supported 
 by any compiler.
 
-\paragraph{Conclusion}
+\paragraph{Conclusion of the experiment}
 
 We have shown \term{zerostack} is effective and that it erases local 
 data as declared and predicted. Therefore we suggest using it or some 
 analogous tool for erasing sensitive data from stack and registers. We 
-also suggest using \code{memset\_s} in complement.
+also suggest using \code{memset\_s} in complement. We can recommend 
+using \term{zerostack} as a substitution for a proper reversible 
+platform if the goal is avoiding information leakage.
 
 
-\chapter{Reflections}
+\chapter{Reflection and future work}
 
-Evaluation of our solution in a broader context, usability in practice 
-and viability of real-world implementation
+%Evaluation of our solution in a broader context, usability in practice 
+%and viability of real-world implementation
+
+
 
 \todo{add what's required for usability: random number generators, nonce generators}
 
