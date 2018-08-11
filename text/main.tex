@@ -70,6 +70,11 @@
 \newcommand{\term}[1]{\textit{#1}}
 \newcommand{\code}[1]{\texttt{#1}}
 
+\makeatletter
+\newcommand{\verbatimfont}[1]{\def\verbatim@font{#1}}%
+\makeatother
+
+
 % Include some layout setup.
 \input{layout.tex}
 
@@ -85,7 +90,10 @@
 \checkandfixthelayout
 
 
+
 \begin{document}
+
+\verbatimfont{\ttfamily\small}%
 
 % Basic information
 \thesistype{MSc thesis}
@@ -578,17 +586,17 @@ shown by Bennett \cite{Bennett73}. Below is a simple example for
 addition:
 
 \begin{lstlisting}[language=c]
-  state: x = 3, y = 5, z = 0, output = 0  // initial state
+  state: x=3, y=5, z=0, output=0  // initial state
   log: empty
-  z = (x + y)                             // original algorithm
-  state: x = 3, y = 5, z = 8, output = 0  // forward run finished
+  z = (x + y)                     // original algorithm
+  state: x=3, y=5, z=8, output=0  // forward run finished
   log: set z to (x + y), was 0
-  output = z                              // copy result to a safe location, log ignored
-  state: x = 3, y = 5, z = 8, output = 8  // copy saved
+  output = z                      // copy result to a safe location, log ignored
+  state: x=3, y=5, z=8, output=8  // copy saved
   log: set z to (x + y), was 0
-  z = 0                                   // run original algorithm backwards
-  state: x = 3, y = 5, z = 0, output = 8  // final state with initial input values, 
-                                          // correct result and no intermediate values
+  z = 0                           // run original algorithm backwards
+  state: x=3, y=5, z=0, output=8  // final state with initial input values, 
+                                  // correct result and no intermediate values
   log: empty
 \end{lstlisting}
 
@@ -845,7 +853,7 @@ brings us to the expansion itself, which is finally interesting
 # b - The length of the key in bytes.
 # K[] - The key, considered as an array of bytes (using 0-based indexing).
 # c - The length of the key in words (or 1, if b = 0).
-# L[] - A temporary working array used during key scheduling. initialized to the key in words.
+# L[] - A temporary working array used during key scheduling.
 # r - The number of rounds to use when encrypting data.
 # t = 2(r+1) - the number of round subkeys required.
 # S[] - The round subkey words.
@@ -1032,8 +1040,12 @@ procedure TEA_encipher(u32 data[], u32 key[])
     local u32 sum = 0
     iterate int i = 1 by 1 to 32
         sum += delta
-        data[0] += ((data[1] * 16) + key[0]) ^ (data[1] + sum) ^ ((data[1] / 32) + key[1])
-        data[1] += ((data[0] * 16) + key[2]) ^ (data[0] + sum) ^ ((data[0] / 32) + key[3])
+        data[0] += ((data[1] * 16) + key[0]) ^
+                    (data[1] + sum) ^
+                    ((data[1] / 32) + key[1])
+        data[1] += ((data[0] * 16) + key[2]) ^
+                    (data[0] + sum) ^
+                    ((data[0] / 32) + key[3])
     end
     delocal u32 sum = 32*delta
     delocal u32 delta = 2654435769
@@ -1112,12 +1124,18 @@ procedure XXTEA_encipher(u32 data[], u32 key[])
     from q = 6 + 52/n loop
         sum += delta
         e += (sum / 4) & 3
-        data[0] += ((((data[n-1] / 32) ^ (data[1] * 4)) + ((data[1] / 8) ^ (data[n-1] * 16))) ^ ((sum ^ data[1]) + (key[e] ^ data[n-1])))
+        data[0] += ((((data[n-1] / 32) ^ (data[1] * 4)) +
+                     ((data[1] / 8) ^ (data[n-1] * 16))) ^ 
+                    ((sum ^ data[1]) + (key[e] ^ data[n-1])))
         from p = 1 loop
-            data[p] += ((((data[p-1] / 32) ^ (data[p+1] * 4)) + ((data[p+1] / 8) ^ (data[p-1] * 16))) ^ ((sum ^ data[p+1]) + (key[(p & 3) ^ (int) e] ^ data[p-1])))
+            data[p] += ((((data[p-1] / 32) ^ (data[p+1] * 4)) + 
+                         ((data[p+1] / 8) ^ (data[p-1] * 16))) ^
+                        ((sum ^ data[p+1]) + (key[(p & 3) ^ (int) e] ^ data[p-1])))
             p += 1
         until p = n-1
-        data[n-1] += ((((data[n-2] / 32) ^ (data[0] * 4)) + ((data[0] / 8) ^ (data[n-2] * 16))) ^ ((sum ^ data[0]) + (key[(p & 3) ^ (int) e] ^ data[n-2])))
+        data[n-1] += ((((data[n-2] / 32) ^ (data[0] * 4)) +
+                       ((data[0] / 8) ^ (data[n-2] * 16))) ^
+                      ((sum ^ data[0]) + (key[(p & 3) ^ (int) e] ^ data[n-2])))
         p -= (n-2)
         e -= (sum / 4) & 3
         q -= 1
@@ -1367,7 +1385,7 @@ in together in the Chacha20 variant.
 
 
 
-\section{Simon and Speck}
+\subsection{Simon and Speck}
 
 
 \section{Lack of leakage and translation}
@@ -1545,18 +1563,18 @@ block take up 16 bytes of memory, so a non-leaking implementation
 should see exactly 32 bytes in total of tainted memory. Let us look at 
 the \term{secretgrind} output for the reference code:
 
-\begin{verbatim}
-***(2) (stack)	 range [0xffefffdcc - 0xffefffdcf]	 (4 bytes)	 is tainted
+\begin{lstlisting}[language=,breaklines=true]
+***(2) (stack)	 range [0xffefffdcc - 0xffefffdcf] (4 bytes) is tainted
    > (stack) [0xffefffdcc - 0xffefffdcf] (4 bytes): XXTEA-C.c:51:@0xffefffdcc:y
         tainted     at 0x400ABF: xxtea_dec (XXTEA-C.c:62)
                     by 0x400C68: main (XXTEA-C.c:96)
 
-***(1) (stack)	 range [0xffefffdd4 - 0xffefffdd7]	 (4 bytes)	 is tainted
+***(1) (stack)	 range [0xffefffdd4 - 0xffefffdd7] (4 bytes) is tainted
    > (stack) [0xffefffdd4 - 0xffefffdd7] (4 bytes): XXTEA-C.c:51:@0xffefffdd4:z
         tainted     at 0x400A55: xxtea_dec (XXTEA-C.c:61)
                     by 0x400C68: main (XXTEA-C.c:96)
 
-***(1) (stack)	 range [0xffefffe10 - 0xffefffe2f]	 (32 bytes)	 is tainted
+***(1) (stack)	 range [0xffefffe10 - 0xffefffe2f] (32 bytes) is tainted
    > (stack) [0xffefffe10 - 0xffefffe1f] (16 bytes): XXTEA-C.c:90:@0xffefffe10:key
         tainted     at 0x4F196B0: __read_nocancel (syscall-template.S:81)
                     by 0x400B63: read_data_binary (XXTEA-C.c:77)
@@ -1575,7 +1593,7 @@ the \term{secretgrind} output for the reference code:
                     by 0x400C68: main (XXTEA-C.c:96)
 
 Total bytes tainted: 40
-\end{verbatim}
+\end{lstlisting}
 
 The printout details three stack ranges. The first two are caused by 
 the \code{y} and \code{z} variables, while the last one makes up the 
@@ -1586,8 +1604,8 @@ Because our Janus implementation had to avoid these local erasable
 variables, and thus perform the updates in-place, there are no extra 
 leaks:
 
-\begin{verbatim}
-***(1) (stack)	 range [0xffefffe20 - 0xffefffe3f]	 (32 bytes)	 is tainted
+\begin{lstlisting}[language=,breaklines=true]
+***(1) (stack)	 range [0xffefffe20 - 0xffefffe3f] (32 bytes) is tainted
    > (stack) [0xffefffe20 - 0xffefffe2f] (16 bytes): TEA-translated.cpp:150:@0xffefffe20:key
         tainted     at 0x4F196B0: __read_nocancel (syscall-template.S:81)
                     by 0x4015F6: read_data_binary(unsigned int*, unsigned long, unsigned int*, unsigned long) (TEA-translated.cpp:139)
@@ -1606,7 +1624,7 @@ leaks:
                     by 0x40171F: main (TEA-translated.cpp:180)
 
 Total bytes tainted: 32
-\end{verbatim}
+\end{lstlisting}
 
 It has to be pointed out that the leakage-free result could be achieved 
 the same way originally. The difference is that the opposite is not 
@@ -1638,18 +1656,18 @@ In the reference version, there is one stack range for all the data. We
 only show an excerpt from the output with the total number of bytes 
 tainted at the bottom:
 
-\begin{verbatim}
-***(1) (stack)	 range [0xffefffd40 - 0xffefffdff]	 (192 bytes)	 is tainted
+\begin{lstlisting}[language=,breaklines=true]
+***(1) (stack)	 range [0xffefffd40 - 0xffefffdff] (192 bytes) is tainted
 Total bytes tainted: 192
-\end{verbatim}
+\end{lstlisting}
 
 Our Janus-to-C translated version is more modest: only the expected 64 
 bytes are marked as tainted. For some reason, \term{secretgrind} split 
 the data array into 3 sections, but on inspection they do reside right 
-after each other in memory.
+next each other in memory.
 
-\begin{verbatim}
-***(1) (stack)	 range [0xffefffdc0 - 0xffefffdff]	 (64 bytes)	 is tainted
+\begin{lstlisting}[language=,breaklines=true]
+***(1) (stack)	 range [0xffefffdc0 - 0xffefffdff] (64 bytes) is tainted
    > (stack) [0xffefffdc0 - 0xffefffdc3] (4 bytes): Chacha20.janus.3.cpp:702:@0xffefffdc0:seq
         tainted     at 0x403743: Chacha20_encrypt_forward(unsigned int*, unsigned int*) (Chacha20.janus.3.cpp:637)
                     by 0x403C31: main (Chacha20.janus.3.cpp:726)
@@ -1662,7 +1680,7 @@ after each other in memory.
                     by 0x403B78: main (Chacha20.janus.3.cpp:711)
 
 Total bytes tainted: 64
-\end{verbatim}
+\end{lstlisting}
 
 
 
@@ -1697,33 +1715,35 @@ call-graph method works. The patching script also required some fixing:
 we had to add assembler code that zeroes out the \code{r8d} register 
 using the \code{xor} instruction.
 
-\begin{verbatim}
+\begin{lstlisting}[language=]
 diff --git a/examples/fpointer/patchme.py b/examples/fpointer/patchme.py
 index 680d58f..a06ac95 100755
 --- a/examples/fpointer/patchme.py
 +++ b/examples/fpointer/patchme.py
 @@ -699,7 +699,8 @@ class Dispatcher:
-                                                "EAX"   :       "\x31\xC0",
-                                                "EDX"   :       "\x31\xD2",
-                                                "ESI"   :       "\x31\xF6",
-                                                
+                      "EAX"   :       "\x31\xC0",
+                      "EDX"   :       "\x31\xD2",
+                      "ESI"   :       "\x31\xF6",
+                      
 
-+                                               "R8D"   :       "\x45\x31\xC0", 
-                                                "R9D"   :       "\x45\x31\xC9",
-                                                "R10D"  :       "\x45\x31\xD2",
-                                                # 16bit register		
-\end{verbatim}
++                     "R8D"   :       "\x45\x31\xC0", 
+                      "R9D"   :       "\x45\x31\xC9",
+                      "R10D"  :       "\x45\x31\xD2",
+                      # 16bit register		
+\end{lstlisting}
 
 \item We define a macro for defining sensitive functions, which is used 
 by the call-graph method. We then use that macro to annotate our two 
 TEA-* functions.
 
-\begin{verbatim}
+\begin{lstlisting}[language=C]
 #define __attr_zerostack __attribute__((annotate("SENSITIVE")))
 
-__attr_zerostack int TEA_encipher_forward(unsigned int *data, unsigned int *key);
-__attr_zerostack int TEA_encipher_reverse(unsigned int *data, unsigned int *key);
-\end{verbatim}
+__attr_zerostack int TEA_encipher_forward(unsigned int *data,
+                                          unsigned int *key);
+__attr_zerostack int TEA_encipher_reverse(unsigned int *data,
+                                          unsigned int *key);
+\end{lstlisting}
 
 \item We comment out the \code{assert} checks at the end of the TEA-* 
 functions. This is also due to a problem with compilation with 
@@ -1742,9 +1762,9 @@ function). The output depends on what compiler we use. The output of
 
 
 \begin{verbatim}
-  400823:       b8 00 00 00 00          mov    $0x0,%eax
-  400828:       5d                      pop    %rbp
-  400829:       c3                      retq
+  400823:   b8 00 00 00 00  mov    $0x0,%eax
+  400828:   5d              pop    %rbp
+  400829:   c3              retq
 \end{verbatim}
 
 The first instruction sets the register \code{eax} to zero, which is 
@@ -1755,11 +1775,11 @@ the return from the function.
 LLVM's \code{clang} outputs this:
 
 \begin{verbatim}
-  400840:       31 c0                   xor    %eax,%eax
-  400842:       5d                      pop    %rbp
-  400843:       c3                      retq   
-  400844:       66 66 66 2e 0f 1f 84    data16 data16 nopw %cs:0x0(%rax,%rax,1)
-  40084b:       00 00 00 00 00 
+  400840:   31 c0                 xor    %eax,%eax
+  400842:   5d                    pop    %rbp
+  400843:   c3                    retq   
+  400844:   66 66 66 2e 0f 1f 84  data16 data16 nopw %cs:0x0(%rax,%rax,1)
+  40084b:   00 00 00 00 00 
 \end{verbatim}
 
 Similarly to what g++ produces, we start by clearing \code{eax}, 
@@ -1772,22 +1792,22 @@ with some optimization enabled.
 Now we utilize the function-based cleanup:
 
 \begin{verbatim}
-  400860:       31 c0                   xor    %eax,%eax
-  400862:       5d                      pop    %rbp
-  400863:       50                      push   %rax
-  400864:       48 31 c0                xor    %rax,%rax
-  400867:       b9 45 00 00 00          mov    $0x45,%ecx
-  40086c:       48 8d bc 24 d8 fd ff    lea    -0x228(%rsp),%rdi
-  400873:       ff 
-  400874:       f3 48 ab                rep stos %rax,%es:(%rdi)
-  400877:       58                      pop    %rax
-  400878:       48 c7 44 24 f8 fc ff    movq   $0xfffffffffffffffc,-0x8(%rsp)
-  40087f:       ff ff 
-  400881:       48 31 c9                xor    %rcx,%rcx
-  400884:       31 d2                   xor    %edx,%edx
-  400886:       89 c0                   mov    %eax,%eax
-  400888:       c3                      retq   
-  400889:       0f 1f 80 00 00 00 00    nopl   0x0(%rax)
+  400860:   31 c0                 xor    %eax,%eax
+  400862:   5d                    pop    %rbp
+  400863:   50                    push   %rax
+  400864:   48 31 c0              xor    %rax,%rax
+  400867:   b9 45 00 00 00        mov    $0x45,%ecx
+  40086c:   48 8d bc 24 d8 fd ff  lea    -0x228(%rsp),%rdi
+  400873:   ff 
+  400874:   f3 48 ab              rep stos %rax,%es:(%rdi)
+  400877:   58                    pop    %rax
+  400878:   48 c7 44 24 f8 fc ff  movq   $0xfffffffffffffffc,-0x8(%rsp)
+  40087f:   ff ff 
+  400881:   48 31 c9              xor    %rcx,%rcx
+  400884:   31 d2                 xor    %edx,%edx
+  400886:   89 c0                 mov    %eax,%eax
+  400888:   c3                    retq   
+  400889:   0f 1f 80 00 00 00 00  nopl   0x0(%rax)
 \end{verbatim}
 
 The original instructions are still there, but just before the function 
@@ -1822,39 +1842,39 @@ shortcomings of \code{clang} compiler, but those are not important here.
 Below is the unpatched epilogue with the placeholder cleanup:
 
 \begin{verbatim}
-  4006b0:       31 c0                   xor    %eax,%eax
-  4006b2:       5d                      pop    %rbp
-  4006b3:       50                      push   %rax
-  4006b4:       48 31 c0                xor    %rax,%rax
-  4006b7:       b9 67 45 23 01          mov    $0x1234567,%ecx
-  4006bc:       48 8d bc 24 f0 cd ab    lea    -0x76543210(%rsp),%rdi
-  4006c3:       89 
-  4006c4:       f3 48 ab                rep stos %rax,%es:(%rdi)
-  4006c7:       58                      pop    %rax
-  4006c8:       48 c7 44 24 f8 fc ff    movq   $0xfffffffffffffffc,-0x8(%rsp)
-  4006cf:       ff ff 
-  4006d1:       66 66 90                data16 xchg %ax,%ax
-  4006d4:       66 66 90                data16 xchg %ax,%ax
-  4006d7:       66 66 90                data16 xchg %ax,%ax
-  4006da:       66 66 90                data16 xchg %ax,%ax
-  4006dd:       66 66 90                data16 xchg %ax,%ax
-  4006e0:       66 66 90                data16 xchg %ax,%ax
-  4006e3:       66 66 90                data16 xchg %ax,%ax
-  4006e6:       66 66 90                data16 xchg %ax,%ax
-  4006e9:       66 66 90                data16 xchg %ax,%ax
-  4006ec:       66 66 90                data16 xchg %ax,%ax
-  4006ef:       66 66 90                data16 xchg %ax,%ax
-  4006f2:       66 66 90                data16 xchg %ax,%ax
-  4006f5:       66 66 90                data16 xchg %ax,%ax
-  4006f8:       66 66 90                data16 xchg %ax,%ax
-  4006fb:       66 66 90                data16 xchg %ax,%ax
-  4006fe:       66 66 90                data16 xchg %ax,%ax
-  400701:       66 66 90                data16 xchg %ax,%ax
-  400704:       66 66 90                data16 xchg %ax,%ax
-  400707:       66 66 90                data16 xchg %ax,%ax
-  40070a:       66 66 90                data16 xchg %ax,%ax
-  40070d:       c3                      retq   
-  40070e:       66 90                   xchg   %ax,%ax
+  4006b0:   31 c0                 xor    %eax,%eax
+  4006b2:   5d                    pop    %rbp
+  4006b3:   50                    push   %rax
+  4006b4:   48 31 c0              xor    %rax,%rax
+  4006b7:   b9 67 45 23 01        mov    $0x1234567,%ecx
+  4006bc:   48 8d bc 24 f0 cd ab  lea    -0x76543210(%rsp),%rdi
+  4006c3:   89 
+  4006c4:   f3 48 ab              rep stos %rax,%es:(%rdi)
+  4006c7:   58                    pop    %rax
+  4006c8:   48 c7 44 24 f8 fc ff  movq   $0xfffffffffffffffc,-0x8(%rsp)
+  4006cf:   ff ff 
+  4006d1:   66 66 90              data16 xchg %ax,%ax
+  4006d4:   66 66 90              data16 xchg %ax,%ax
+  4006d7:   66 66 90              data16 xchg %ax,%ax
+  4006da:   66 66 90              data16 xchg %ax,%ax
+  4006dd:   66 66 90              data16 xchg %ax,%ax
+  4006e0:   66 66 90              data16 xchg %ax,%ax
+  4006e3:   66 66 90              data16 xchg %ax,%ax
+  4006e6:   66 66 90              data16 xchg %ax,%ax
+  4006e9:   66 66 90              data16 xchg %ax,%ax
+  4006ec:   66 66 90              data16 xchg %ax,%ax
+  4006ef:   66 66 90              data16 xchg %ax,%ax
+  4006f2:   66 66 90              data16 xchg %ax,%ax
+  4006f5:   66 66 90              data16 xchg %ax,%ax
+  4006f8:   66 66 90              data16 xchg %ax,%ax
+  4006fb:   66 66 90              data16 xchg %ax,%ax
+  4006fe:   66 66 90              data16 xchg %ax,%ax
+  400701:   66 66 90              data16 xchg %ax,%ax
+  400704:   66 66 90              data16 xchg %ax,%ax
+  400707:   66 66 90              data16 xchg %ax,%ax
+  40070a:   66 66 90              data16 xchg %ax,%ax
+  40070d:   c3                    retq   
+  40070e:   66 90                 xchg   %ax,%ax
 \end{verbatim}
 
 There are similarities to the previous method. We see the code starts 
@@ -1867,41 +1887,41 @@ it has no effect.}. These will also be replaced, and we will see how right
 below:
 
 \begin{verbatim}
-  4006b0:       31 c0                   xor    %eax,%eax
-  4006b2:       5d                      pop    %rbp
-  4006b3:       50                      push   %rax
-  4006b4:       48 31 c0                xor    %rax,%rax
-  4006b7:       b9 16 02 00 00          mov    $0x216,%ecx
-  4006bc:       48 8d bc 24 50 ef ff    lea    -0x10b0(%rsp),%rdi
-  4006c3:       ff 
-  4006c4:       f3 48 ab                rep stos %rax,%es:(%rdi)
-  4006c7:       58                      pop    %rax
-  4006c8:       48 c7 44 24 f8 fc ff    movq   $0xfffffffffffffffc,-0x8(%rsp)
-  4006cf:       ff ff 
-  4006d1:       31 d2                   xor    %edx,%edx
-  4006d3:       90                      nop
-  4006d4:       48 31 c9                xor    %rcx,%rcx
-  4006d7:       89 c0                   mov    %eax,%eax
-  4006d9:       90                      nop
-  4006da:       66 66 90                data16 xchg %ax,%ax
-  4006dd:       66 66 90                data16 xchg %ax,%ax
-  4006e0:       66 66 90                data16 xchg %ax,%ax
-  4006e3:       66 66 90                data16 xchg %ax,%ax
-  4006e6:       66 66 90                data16 xchg %ax,%ax
-  4006e9:       66 66 90                data16 xchg %ax,%ax
-  4006ec:       66 66 90                data16 xchg %ax,%ax
-  4006ef:       66 66 90                data16 xchg %ax,%ax
-  4006f2:       66 66 90                data16 xchg %ax,%ax
-  4006f5:       66 66 90                data16 xchg %ax,%ax
-  4006f8:       66 66 90                data16 xchg %ax,%ax
-  4006fb:       66 66 90                data16 xchg %ax,%ax
-  4006fe:       66 66 90                data16 xchg %ax,%ax
-  400701:       66 66 90                data16 xchg %ax,%ax
-  400704:       66 66 90                data16 xchg %ax,%ax
-  400707:       66 66 90                data16 xchg %ax,%ax
-  40070a:       66 66 90                data16 xchg %ax,%ax
-  40070d:       c3                      retq   
-  40070e:       66 90                   xchg   %ax,%ax
+  4006b0:   31 c0                 xor    %eax,%eax
+  4006b2:   5d                    pop    %rbp
+  4006b3:   50                    push   %rax
+  4006b4:   48 31 c0              xor    %rax,%rax
+  4006b7:   b9 16 02 00 00        mov    $0x216,%ecx
+  4006bc:   48 8d bc 24 50 ef ff  lea    -0x10b0(%rsp),%rdi
+  4006c3:   ff 
+  4006c4:   f3 48 ab              rep stos %rax,%es:(%rdi)
+  4006c7:   58                    pop    %rax
+  4006c8:   48 c7 44 24 f8 fc ff  movq   $0xfffffffffffffffc,-0x8(%rsp)
+  4006cf:   ff ff 
+  4006d1:   31 d2                 xor    %edx,%edx
+  4006d3:   90                    nop
+  4006d4:   48 31 c9              xor    %rcx,%rcx
+  4006d7:   89 c0                 mov    %eax,%eax
+  4006d9:   90                    nop
+  4006da:   66 66 90              data16 xchg %ax,%ax
+  4006dd:   66 66 90              data16 xchg %ax,%ax
+  4006e0:   66 66 90              data16 xchg %ax,%ax
+  4006e3:   66 66 90              data16 xchg %ax,%ax
+  4006e6:   66 66 90              data16 xchg %ax,%ax
+  4006e9:   66 66 90              data16 xchg %ax,%ax
+  4006ec:   66 66 90              data16 xchg %ax,%ax
+  4006ef:   66 66 90              data16 xchg %ax,%ax
+  4006f2:   66 66 90              data16 xchg %ax,%ax
+  4006f5:   66 66 90              data16 xchg %ax,%ax
+  4006f8:   66 66 90              data16 xchg %ax,%ax
+  4006fb:   66 66 90              data16 xchg %ax,%ax
+  4006fe:   66 66 90              data16 xchg %ax,%ax
+  400701:   66 66 90              data16 xchg %ax,%ax
+  400704:   66 66 90              data16 xchg %ax,%ax
+  400707:   66 66 90              data16 xchg %ax,%ax
+  40070a:   66 66 90              data16 xchg %ax,%ax
+  40070d:   c3                    retq   
+  40070e:   66 90                 xchg   %ax,%ax
 \end{verbatim}
 
 First thing we notice is the amount of overwritten stack is much higher 
@@ -1943,14 +1963,14 @@ We keep stepping instructions until the \code{rep stos} instruction and
 observe the output:
 
 \begin{verbatim}
-B+ |0x400901 <xxtea_enc+369>        pop    %rbp                          
-   |0x400902 <xxtea_enc+370>        push   %rax                          
-   |0x400903 <xxtea_enc+371>        xor    %rax,%rax                     
-   |0x400906 <xxtea_enc+374>        mov    $0x49,%ecx                    
-   |0x40090b <xxtea_enc+379>        lea    -0x248(%rsp),%rdi             
-  >|0x400913 <xxtea_enc+387>        rep stos %rax,%es:(%rdi)             
-   |0x400916 <xxtea_enc+390>        pop    %rax                          
-   |0x400917 <xxtea_enc+391>        movq   $0xfffffffffffffffc,-0x8(%rsp)
+B+ |0x400901 <xxtea_enc+369>  pop    %rbp                          
+   |0x400902 <xxtea_enc+370>  push   %rax                          
+   |0x400903 <xxtea_enc+371>  xor    %rax,%rax                     
+   |0x400906 <xxtea_enc+374>  mov    $0x49,%ecx                    
+   |0x40090b <xxtea_enc+379>  lea    -0x248(%rsp),%rdi             
+  >|0x400913 <xxtea_enc+387>  rep stos %rax,%es:(%rdi)             
+   |0x400916 <xxtea_enc+390>  pop    %rax                          
+   |0x400917 <xxtea_enc+391>  movq   $0xfffffffffffffffc,-0x8(%rsp)
 
 4: *((unsigned int *) 0x7fffffffde44) = 792968749
 3: *((unsigned int *) 0x7fffffffde40) = 2860056034
@@ -1960,11 +1980,11 @@ At some point the output changes the value of the variables to 0. We
 keep stepping until the \code{ret} instruction to confirm:
 
 \begin{verbatim}
-   |0x400917 <xxtea_enc+391>        movq   $0xfffffffffffffffc,-0x8(%rsp)
-   |0x400920 <xxtea_enc+400>        xor    %rdx,%rdx                     
-   |0x400923 <xxtea_enc+403>        xor    %rsi,%rsi                     
-   |0x400926 <xxtea_enc+406>        xor    %rcx,%rcx                     
-  >|0x400929 <xxtea_enc+409>        retq 
+   |0x400917 <xxtea_enc+391>  movq   $0xfffffffffffffffc,-0x8(%rsp)
+   |0x400920 <xxtea_enc+400>  xor    %rdx,%rdx                     
+   |0x400923 <xxtea_enc+403>  xor    %rsi,%rsi                     
+   |0x400926 <xxtea_enc+406>  xor    %rcx,%rcx                     
+  >|0x400929 <xxtea_enc+409>  retq 
 
 4: *((unsigned int *) 0x7fffffffde44) = 0
 3: *((unsigned int *) 0x7fffffffde40) = 0
