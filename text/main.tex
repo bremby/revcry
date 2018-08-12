@@ -1382,9 +1382,19 @@ different operation ordering and are in the \code{doubleround} and the
 \code{columnround} and \code{rowround} functions, their code is mixed 
 in together in the Chacha20 variant.
 
-\todo{chacha20 quarterround differs!}
-
-
+Worth noticing is the difference between the variants of the 
+\code{quarterround} function. We have already examined the details of 
+the Salsa20 variant and we noticed, that with current version of Jana, 
+we do need to utilize at least one temporary local variable. We have 
+also suggested enhancing Janus to include \term{functions} in addition 
+to \term{procedures}. In the case of Chacha20, however, no such 
+extension is necessary. Their author correctly noted that both variants 
+are invertible, but from our perspective one is easier to code 
+reversibly. The difference is that the Salsa20 variant uses non-trivial 
+bracketed expression for each single element that is updated, and 
+intermediate calculations need to store intermediate results. Chacha20 
+performs updates one step at a time, each of them being used and none 
+of them being temporary.
 
 \subsection{Simon and Speck}
 
@@ -1504,10 +1514,6 @@ reversible-only world, we translate the Janus code and make sure the
 code keeps the necessary guarantees. Zerostack offers us the 
 proper cleanup on every function/procedure exit, thus avoiding 
 information leakage.
-
-\section{implementations}
-
-\todo{explain edits to translated code and reference chacha implementation}
 
 \section{Experiments}
 
@@ -1634,9 +1640,14 @@ this is a fairly simple algorithm, so let us move on.
 
 \subsubsection{Chacha20}
 
-\todo{missing description here, posting just the results for now.}
+A second algorithm we will be looking at is Chacha20. The nice thing 
+about this algorithm is that its author also wrote the reference 
+implementation along with several optimized versions\footnote{All of 
+them can be found on their author's website.}. For simplicity and 
+fairness we are comparing only the most generic reference version.
 
-Expected bytes tainted: 64 (16*4)
+We are tracking only the plaintext part of the input. Expected number 
+of bytes tainted therefore is $16\cdot4 = 64$.
 
 %In the reference version, there are 7 stack ranges in total with far 
 %too many individual locations to show them. We only show an excerpt 
@@ -1683,6 +1694,12 @@ next each other in memory.
 Total bytes tainted: 64
 \end{lstlisting}
 
+This result is a good demonstration of why our work is important: even 
+the author of the crypto algorithm can and will make a mistake when 
+writing the code. Admittedly the author may not have even considered 
+the problem and therefore have not made any attempts for avoiding it, 
+but that is still a valid argument. Such code is still vulnerable no 
+matter the intention.
 
 
 \subsection{Step 4: Zerostack substitution}
@@ -2070,6 +2087,8 @@ directions:
 
 \item Implementing more algorithms and noting and assessing the 
 experience further.
+
+\item Comparing performance between reversible and irreversible code.
 
 \item Stabilizing zerostack and adding the same or similar 
 functionality to other compilers.

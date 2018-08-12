@@ -12,11 +12,11 @@ procedure rotate_left_u32(u32 x, int r)
 procedure quarterround(u32 seq[4])
 	local u32 tmp = 0
 	// z1 = y1 ^ ((y0 + y3) <<< 7)
-  tmp += seq[0] + seq[3]
-  call rotate_left_u32(tmp, 7)
-  seq[1] ^= tmp
-  uncall rotate_left_u32(tmp, 7)
-  tmp -= (seq[0] + seq[3])
+	tmp += seq[0] + seq[3]
+	call rotate_left_u32(tmp, 7)
+	seq[1] ^= tmp
+	uncall rotate_left_u32(tmp, 7)
+	tmp -= (seq[0] + seq[3])
 	
 	// z2 = y2 ^ ((z1 + y0) <<< 9)
 	tmp += seq[1] + seq[0]
@@ -25,15 +25,15 @@ procedure quarterround(u32 seq[4])
 	uncall rotate_left_u32(tmp, 9)
 	tmp -= (seq[1] + seq[0])
   
-  // z3 = z3 ^ ((z2 + z1) <<< 13)
-  tmp += seq[2] + seq[1]
+	// z3 = z3 ^ ((z2 + z1) <<< 13)
+	tmp += seq[2] + seq[1]
 	call rotate_left_u32(tmp, 13)
 	seq[3] ^= tmp
 	uncall rotate_left_u32(tmp, 13)
 	tmp -= (seq[2] + seq[1])
   
-  // z0 = z0 ^ ((z3 + z2) <<< 18)
-  tmp += seq[3] + seq[2]
+	// z0 = z0 ^ ((z3 + z2) <<< 18)
+	tmp += seq[3] + seq[2]
 	call rotate_left_u32(tmp, 18)
 	seq[0] ^= tmp
 	uncall rotate_left_u32(tmp, 18)
