@@ -104,7 +104,7 @@
 \subtitle{Exploring lightweight cryptography in the context of reversible computing}
 \author{Dominik T\'{a}borsk\'{y}}
 \supervisor{Michael Kirkedal Thomsen, Ken Friis Larsen}
-\date{August 13, 2018} % Hand-in date <<<------------------------<<<-----------------<<<-----------------!!!!!! FILL IN !!!!<<<-------------
+\date{August, 2018} % Hand-in date <<<------------------------<<<-----------------<<<-----------------!!!!!! FILL IN !!!!<<<-------------
 %\subject{The short description that is suitable for a database.} % This is not needed.
 
 % Make the front page, title page, and other required information.
@@ -1537,18 +1537,24 @@ but it shows how low-level and difficult the language is. It is listed
 in appendix \ref{app:vale}.
 
 Since we cannot use Vale, the next best option is taint tracking in 
-combination with automatic cleanup of registers and stack memory. 
-Ideally we could use both at the same time, but experiments have shown 
-there is a clash between them. The reason is not perfectly clear, but 
-suspicion lies with how secretgrind tracks \term{libc} calls and 
-the fact that zerostack links with \term{musl-libc}. It should 
-be possible to remove this problem in a production scenario without too 
-much effort. Since secretgrind also tracks stack, though, we do 
-not necessarily require this for the evaluation.
+combination with automatic cleanup of registers and stack memory. We 
+can use secretgrind to show sources of information leakage and then 
+zerostack for removing those leaks.
 
 For the evaluation we suggest performing an experiment on selected 
-algorithms to approach describing the reality of state leakage. Let us 
-describe the experiment in steps:
+algorithms to approach describing the reality of state leakage. The 
+idea is to first make an assessment of the situation: does the our 
+code, translated from Janus, leak any memory? Does the reference 
+implementation leak memory? Secondly, since we can only interpret 
+reversible code and not execute it on the hardware, we need to 
+translate our code to an irreversible representation. We use Jana to 
+translate Janus to C++. However, to keep our guarantee of lack of 
+information leakage, we can use zerostack to make sure the memory is 
+cleaned up after use. The last part of the experiment therefore 
+explores how zerostack works, how we can use it and assess its 
+properties.
+
+For an overview of the experiment, let us describe it in steps:
 
 \begin{description}
 
@@ -1568,27 +1574,26 @@ input the same data. We compare their execution using
 secretgrind and evaluate their scores in number of bytes 
 potentially leaked.
 
-\item[Step 4: Zerostack substitution] Secretgrind traces the 
-source of the leaks (taints), and so we can examine them. We then 
-recompile the programs with zerostack and re-evaluate the 
-situation.
+\item[Step 4: Zerostack substitution] Secretgrind traces the source of 
+the leaks (taints), and so we can examine them. We recompile our code 
+with zerostack and re-evaluate the situation.
 
 \end{description}
 
-The last step is somewhat problematic. During the experimentation an 
-issue with the combination of secretgrind and zerostack 
-appeared. To be fully effective, zerostack requires all linked 
-libraries, including \code{libc}, to be also modified with cleanup 
-code. The author of zerostack chose \code{musl-libc} for its 
+The last step is has to be performed manually. During the 
+experimentation an issue with the combination of secretgrind and 
+zerostack appeared. To be fully effective, zerostack requires all 
+linked libraries, including \code{libc}, to be also modified with 
+cleanup code. The author of zerostack chose \code{musl-libc} for its 
 simplicity, which reduces potential problems during compilation. 
 However, it appears \code{secretgrind} does not cooperate very well 
 with that library, as any attempts to trace binaries, that are linked 
-with zerostack-enabled \code{libc}, results in various errors. 
-At least one of them suggests secretgrind is somehow sensitive 
-to the choice of \code{libc}, even though the original version, 
-\term{taintgrind}, should not be\footnote{Confirmed by its author over 
-e-mail.}. This means we will resort to manual examination of the 
-executable binary file.
+with zerostack-enabled \code{libc}, results in various errors. At least 
+one of them suggests secretgrind is somehow sensitive to the choice of 
+\code{libc}, even though the original version, \term{taintgrind}, 
+should not be\footnote{Confirmed by its author over e-mail.}. This 
+means we will resort to manual examination of the executable binary 
+file.
 
 On a last note, the reason to use zerostack at all is just 
 usefulness. At this time, reversible hardware is not available. 
