@@ -202,7 +202,7 @@ Cryptography has been with us for decades now, yet only
 recently we figured out how to reliably code and verify an 
 actual implementation with the \term{F*/HACL} work \cite{ProtzenkoEtal:2017}. 
 A similar approach takes the \term{Vale} project \cite{BondEtal:2017:Vale}, 
-designing a new language that utilizes either \term{Dafny} or \term{F*} for 
+designing a new language that utilizes either one of \term{Dafny} or \term{F*} languages for 
 verification. These solutions verify not only the correctness of the 
 code, but also prove the lack of state-based information leakage, and 
 in the case of Vale, even timing-based leakage. These two are possibly 
@@ -1000,18 +1000,19 @@ use Vale was made. Details will be discussed later. \todo{discuss later}
 Another approach is turning the compiler into an ally rather an 
 obstacle that has to be worked-around. Such approach was taken by the 
 authors in a very recent paper\cite{whatyouc}. They have implemented an 
-extension to the LLVM/Clang compiler that adds the ability clearing out 
-registers and stack, and to make a selection between two values in 
-constant time. The C11 standard also added \code{memset\_s}, which the 
-compiler is supposed to guarantee to never remove and so it can be used 
-for clearing out heap memory. We will be using this method in 
-combination with the manual methods to verify results.
+extension to the LLVM/Clang compiler called \term{zerostack} that adds 
+the ability for clearing out registers and stack, and to make a 
+selection between two values in constant time. The C11 standard also 
+added \code{memset\_s}, which the compiler is supposed to guarantee to 
+never remove and so it can be used for clearing out heap memory. We 
+will be using this method in combination with the manual methods to 
+verify results.
 
 Lastly, there are projects that offer tracking of sensitive data (or 
 rather taints\todo{taints? is this even the right word?}) when moved 
 around in memory. These are \term{taintgrind} and its derivative 
 \term{secretgrind}, with the latter being specifically designed for 
-crypto algorithms. We will be using \term{secretgrind} to track tainted data. 
+crypto algorithms. We will be using secretgrind to track tainted data. 
 This will be in combination with the register and stack clearing 
 method, described above, to make sure nothing of the secret computation 
 is preserved.
@@ -1443,10 +1444,10 @@ Since we cannot use Vale, the next best option is taint tracking in
 combination with automatic cleanup of registers and stack memory. 
 Ideally we could use both at the same time, but experiments have shown 
 there is a clash between them. The reason is not perfectly clear, but 
-suspicion lies with how \term{secretgrind} tracks \term{libc} calls and 
-the fact that \term{zerostack} links with \term{musl-libc}. It should 
+suspicion lies with how secretgrind tracks \term{libc} calls and 
+the fact that zerostack links with \term{musl-libc}. It should 
 be possible to remove this problem in a production scenario without too 
-much effort. Since \term{secretgrind} also tracks stack, though, we do 
+much effort. Since secretgrind also tracks stack, though, we do 
 not necessarily require this for the evaluation.
 
 For the evaluation we suggest performing an experiment on selected 
@@ -1468,39 +1469,39 @@ our comparison.
 
 \item[Step 3: Taint tracking] We compile both programs the same way and 
 input the same data. We compare their execution using 
-\term{secretgrind} and evaluate their scores in number of bytes 
+secretgrind and evaluate their scores in number of bytes 
 potentially leaked.
 
-\item[Step 4: Zerostack substitution] \term{Secretgrind} traces the 
+\item[Step 4: Zerostack substitution] Secretgrind traces the 
 source of the leaks (taints), and so we can examine them. We then 
-recompile the programs with \term{zerostack} and re-evaluate the 
+recompile the programs with zerostack and re-evaluate the 
 situation.
 
 \end{description}
 
 The last step is somewhat problematic. During the experimentation an 
-issue with the combination of \term{secretgrind} and \term{zerostack} 
-appeared. To be fully effective, \term{zerostack} requires all linked 
+issue with the combination of secretgrind and zerostack 
+appeared. To be fully effective, zerostack requires all linked 
 libraries, including \code{libc}, to be also modified with cleanup 
-code. The author of \term{zerostack} chose \code{musl-libc} for its 
+code. The author of zerostack chose \code{musl-libc} for its 
 simplicity, which reduces potential problems during compilation. 
 However, it appears \code{secretgrind} does not cooperate very well 
 with that library, as any attempts to trace binaries, that are linked 
-with \term{zerostack}-enabled \code{libc}, results in various errors. 
-At least one of them suggests \term{secretgrind} is somehow sensitive 
+with zerostack-enabled \code{libc}, results in various errors. 
+At least one of them suggests secretgrind is somehow sensitive 
 to the choice of \code{libc}, even though the original version, 
 \term{taintgrind}, should not be\footnote{Confirmed by its author over 
 e-mail.}. This means we will resort to manual examination of the 
 executable binary file.
 
-On a last note, the reason to use \term{zerostack} at all is just 
+On a last note, the reason to use zerostack at all is just 
 usefulness. At this time, reversible hardware is not available. 
 Reversible platforms, which would simulate reversible hardware, are 
 either not commonly available, or just not practically feasible for any 
 serious application. For our research to be usable in the real world, 
 \ie taking the advantages of reversible embedding out of the 
 reversible-only world, we translate the Janus code and make sure the 
-code keeps the necessary guarantees. \term{Zerostack} offers us the 
+code keeps the necessary guarantees. Zerostack offers us the 
 proper cleanup on every function/procedure exit, thus avoiding 
 information leakage.
 
@@ -1515,8 +1516,8 @@ information leakage.
 The code is translated using Jana. There are no manual modifications to 
 make the code compile, however there are some modifications in order to 
 perform the experiment. One set of modifications is done so that we 
-\term{secretgrind} has tainted memory to track. A second set of 
-modifications is done in compliance with \term{zerostack}, and those 
+secretgrind has tainted memory to track. A second set of 
+modifications is done in compliance with zerostack, and those 
 will be explained in the last step. We use the older version of 
 translation due to added complexity in recent Jana versions. Originally 
 Jana used a direct translation to C-style arrays, that was substituted 
@@ -1528,7 +1529,7 @@ does not change. C, on the other hand, uses simple pointers to memory
 and does not track the size of the allocated block\footnote{Not related 
 to heap allocations, which do need to track that information 
 internally.}. The reason to stick to the original translation is 
-simplicity in tracking memory using \term{secretgrind} and the 
+simplicity in tracking memory using secretgrind and the 
 immaturity of the recent changes to Jana.
 
 \subsection{Step 2: Reference}
@@ -1538,7 +1539,7 @@ implementations from the Internet. We also add some boilerplate code to
 create executable self-standing programs instead of libraries, and we 
 also add a function for reading from a file. This function uses the 
 \code{read()} function, since that is simple enough to avoid confusion 
-and complexity when tracked by \term{secretgrind}. For the same reason 
+and complexity when tracked by secretgrind. For the same reason 
 we also disable code that prints out the contents of arrays - prior 
 experiments have shown that functions like \code{printf} and \code{scanf} manipulate and 
 taint more memory.
@@ -1558,10 +1559,10 @@ three TEA-family algorithms; we only comment out the TEA and XTEA
 invocations. For the reference implementation, we make minor edits to 
 the version on Wikipedia\cite{xxtea-wiki}. For input, we load 
 both key and data for encryption from a file, that will be marked as 
-tainted by \term{secretgrind}. Note that both the key and the data 
+tainted by secretgrind. Note that both the key and the data 
 block take up 16 bytes of memory, so a non-leaking implementation 
 should see exactly 32 bytes in total of tainted memory. Let us look at 
-the \term{secretgrind} output for the reference code:
+the secretgrind output for the reference code:
 
 \begin{lstlisting}[language=,breaklines=true]
 ***(2) (stack)	 range [0xffefffdcc - 0xffefffdcf] (4 bytes) is tainted
@@ -1662,7 +1663,7 @@ Total bytes tainted: 192
 \end{lstlisting}
 
 Our Janus-to-C translated version is more modest: only the expected 64 
-bytes are marked as tainted. For some reason, \term{secretgrind} split 
+bytes are marked as tainted. For some reason, secretgrind split 
 the data array into 3 sections, but on inspection they do reside right 
 next each other in memory.
 
@@ -1686,7 +1687,7 @@ Total bytes tainted: 64
 
 \subsection{Step 4: Zerostack substitution}
 
-\term{Zerostack} offers three types of operation, differing by what 
+Zerostack offers three types of operation, differing by what 
 they are based on: \term{function}, \term{stack} and finally 
 \term{call-graph}. We tested all three and found the stack-based 
 operation non-operational due to a crash in the LLVM compiler. The 
@@ -1747,7 +1748,7 @@ __attr_zerostack int TEA_encipher_reverse(unsigned int *data,
 
 \item We comment out the \code{assert} checks at the end of the TEA-* 
 functions. This is also due to a problem with compilation with 
-\term{zerostack} enabled.
+zerostack enabled.
 
 \end{itemize}
 
@@ -1931,7 +1932,7 @@ contrast to claims in the paper\cite{whatyouc}. This value is
 overestimated and composes of three components: a signal handler (4096 
 bytes) offset, a red zone offset (128 bytes), and some pre-calculated 
 stack usage (48 bytes). Perhaps a there could be some savings in future 
-improvements of \term{zerostack}.
+improvements of zerostack.
 
 We also take note that a subset of the 20 \code{xchg} instructions were 
 replaced. The substituting code is exactly the same code as in the 
@@ -1995,7 +1996,7 @@ keep stepping until the \code{ret} instruction to confirm:
 A recent standard extension, \term{C11}, has added a new function 
 \code{memset\_s} which, unlike its original variant \code{memset}, is 
 guaranteed \textbf{not} to be removed by an optimizing compiler. In 
-theory, we could use it as a substitute for \term{zerostack}, except 
+theory, we could use it as a substitute for zerostack, except 
 for two shortcomings:
 
 \begin{enumerate}
@@ -2016,30 +2017,88 @@ by any compiler.
 
 \paragraph{Conclusion of the experiment}
 
-We have shown \term{zerostack} is effective and that it erases local 
+We have shown zerostack is effective and that it erases local 
 data as declared and predicted. Therefore we suggest using it or some 
 analogous tool for erasing sensitive data from stack and registers. We 
 also suggest using \code{memset\_s} in complement. We can recommend 
-using \term{zerostack} as a substitution for a proper reversible 
+using zerostack as a substitution for a proper reversible 
 platform if the goal is avoiding information leakage.
 
 
-\chapter{Reflection and future work}
+\chapter{Conclusion, reflection and future work}
 
 %Evaluation of our solution in a broader context, usability in practice 
 %and viability of real-world implementation
 
+In this thesis we discussed the advantages of using reversible 
+programming language as a way of dealing with the difficulty in 
+implementing cryptographic algorithms correctly in relation to 
+side-channel vulnerabilities. Although other work already exists (Vale) 
+and offers additional guarantee (timing-based leakage protection), it 
+is much more difficult to use in practice. Our main contribution is 
+therefore exploration of another approach in making sure our 
+cryptographic code does not leak any information unintentionally. 
+Furthermore, since fully reversible platforms (hardware and full-stack 
+software) do not yet exist, we have shown a way of reaching the goal 
+with current systems (zerostack).
 
+We have also improved Jana, the Janus interpreter, and suggested further 
+development of the language. We have also shown some techniques 
+programmers can use when developing reversible code.
 
-\todo{add what's required for usability: random number generators, nonce generators}
+Along the way we have developed several symmetric encryption 
+algorithms. These are available on the project's GitHub page and are 
+released freely under the MIT license.
 
-\chapter{Related Work}
+\paragraph{Usability in practice}
 
-obvious
+Our code can be used in practice, but has not been thoroughly tested. 
+The user would use Jana to translate Janus to C++, as we did in our 
+experiment, and use the code as a library, linking it to the rest of 
+their project. However, there are some pieces of the puzzle still 
+missing: the programmer would still need to supply some (pseudo-) 
+random number generator and/or nonce generator. The former can also be 
+implemented reversibly (see \term{linear-feedback shift registers}), 
+nonce generation is specific to the scenario it is used in.
 
-\chapter{Conclusion}
+\paragraph{Future work}
 
-Discussion of results.
+Our and related work can be extended and improved upon in several 
+directions:
+
+\begin{itemize}
+
+\item Implementing more algorithms and noting and assessing the 
+experience further.
+
+\item Stabilizing zerostack and adding the same or similar 
+functionality to other compilers.
+
+\item Stabilizing secretgrind to be fully independent on how the 
+tracked binary was compiled or what it was linked with.
+
+\item Fixing Vale. The Vale language has a great potential, but its 
+actual usability is diminished by its complexity in all its relevant 
+parts: from troublesome installation, through language difficulty with 
+no proper documentation, through complex and also troublesome 
+dependencies and infrastructure, to undocumented, dense and as much as 
+unreadable source code.
+
+\item Exploring the same concepts in hardware. There are some 
+applications (\eg RFID chips), where lack of information leakage 
+through other side-channels is just as important, especially given the 
+fact that the attacker has physical access to these devices.
+
+\end{itemize}
+
+% I don't like this chapter, there's no point in repeating those references.
+%\chapter{Related work}
+
+%\begin{itemize}
+%\item F*/HACL work\cite{ProtzenkoEtal:2017}. 
+%\item Vale project\cite{BondEtal:2017:Vale}.
+%\item Zerostack and secretgrind\cite{whatyouc}.
+%\end{itemize}
 
 \section{Contributions}
 
@@ -2064,7 +2123,7 @@ also presented our research at the \term{Öresund Security Day Spring
 2018} conference.
 
 \item All the work is freely accessible on 
-Github\cite{revcry-github}. This includes the algorithms, 
+GitHub\cite{revcry-github}. This includes the algorithms, 
 supporting files like other source codes, binaries and listings, this 
 thesis source files and the wiki resources.
 
