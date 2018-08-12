@@ -14,6 +14,7 @@
 \usepackage{tikz}
 \usepackage{fix-cm}
 \usepackage{xcolor,calc}
+\usepackage{hyperref}
 \usepackage{graphicx}
 \usepackage{amsbsy}
 \usepackage{amssymb}
@@ -93,6 +94,7 @@
 
 \begin{document}
 
+\hypersetup{pageanchor=false}
 \verbatimfont{\ttfamily\small}%
 
 % Basic information
@@ -102,7 +104,7 @@
 \subtitle{Exploring lightweight cryptography in the context of reversible computing}
 \author{Dominik T\'{a}borsk\'{y}}
 \supervisor{Michael Kirkedal Thomsen, Ken Friis Larsen}
-%\date{July 7, 2018} % Hand-in date <<<------------------------<<<-----------------<<<-----------------!!!!!! FILL IN !!!!<<<-------------
+\date{August 13, 2018} % Hand-in date <<<------------------------<<<-----------------<<<-----------------!!!!!! FILL IN !!!!<<<-------------
 %\subject{The short description that is suitable for a database.} % This is not needed.
 
 % Make the front page, title page, and other required information.
@@ -110,6 +112,7 @@
 \maketitle
 
 % Start at page 3. I do not count the front page in the numbering.
+\hypersetup{pageanchor=true}
 \cleardoublepage
 \pagenumbering{roman}
 \setcounter{page}{3}
@@ -333,7 +336,7 @@ suggest and perform some experiments to do that. We also look at how we
 can work around the problem of not having a fully reversible platform.
 
 \item[Reflection and future work] We reflect on how well our solution 
-can work in practice, and what else needs to or should be done. \todo{do so}
+can work in practice, and what else needs to or should be done.
 
 \end{description}
 
@@ -941,8 +944,8 @@ the calculations. Even when compared to Salsa20 and Chacha20, which
 both have more lines of code than Speck, both were easier to write. 
 That experience may be explained with more precise documentation. The 
 fact that both Salsa20 and Chacha20 contain fewer and \textit{,,less 
-weird''}~\footnote{From purely personal experience. I cannot offer 
-formal quantification.} occurrences of Bennett's tricks, however, 
+weird''}~\footnote{From purely personal experience. The author cannot 
+offer formal quantification.} occurrences of Bennett's tricks, however, 
 cannot.
 
 \begin{lstlisting}
@@ -951,8 +954,13 @@ cannot.
 
 \section{Defining inputs, outputs and expected behaviour}
 
-Thanks to assumed bijection, we can define two inputs and two outputs for each of our algorithms. \todo{even RC5?}
-\todo{ Also stream ciphers, watch out}
+Thanks to assumed bijection, we can theoretically define two inputs and 
+two outputs, \ie key and plaintext/ciphertext, for each of our 
+algorithms. In practice, however, other interfaces are necessary. In 
+some cases the algorithm allows setting number of encryption rounds, 
+sometimes it requires a setup with pre-calculated constants, sometimes 
+the key is replaced by a stream of random data that is combined with 
+the plaintext. We will see all these options in our algorithms.
 
 \section{Verification methods}
 
@@ -981,8 +989,11 @@ There are some ways to verify different properties automatically; or to
 enforce them. Methods like theorem provers, however, tend to be 
 difficult to employ. They often require non-trivial amount of skilled 
 work just to formally prove correctness can be as high or even higher 
-than implementing the algorithm in the first place. \todo{citation 
-needed} We will not be using this method.
+than implementing the algorithm in the first place. In a recent 
+paper\cite{ironclad}, results have shown the overhead for annotations 
+for formal verification is about 5 lines for each useful line of code 
+and the requirement of skill and ability to use specialized tools for 
+the task. We will not be using this method.
 
 On a related note, there has been some research made into and 
 real-world application of language-based safe code recently: notably, 
@@ -995,7 +1006,8 @@ successfully verified their resistance to state-based and timing-based
 information leakage and even showed some performance gains. Vale has a 
 huge potential, but at the time of writing it also lacks stability, 
 documentation, examples and manuals. Only an unsuccessful attempt to 
-use Vale was made. Details will be discussed later. \todo{discuss later}
+use Vale was made. Details will be discussed later in section 
+\ref{sec:eval:design}.
 
 Another approach is turning the compiler into an ally rather an 
 obstacle that has to be worked-around. Such approach was taken by the 
@@ -1009,7 +1021,7 @@ will be using this method in combination with the manual methods to
 verify results.
 
 Lastly, there are projects that offer tracking of sensitive data (or 
-rather taints\todo{taints? is this even the right word?}) when moved 
+rather taints) when moved 
 around in memory. These are \term{taintgrind} and its derivative 
 \term{secretgrind}, with the latter being specifically designed for 
 crypto algorithms. We will be using secretgrind to track tainted data. 
@@ -1026,6 +1038,7 @@ discuss it. We talk about the conversion from irreversible to
 reversible and even come up with improvements to Jana, the Janus 
 interpreter.
 
+All implemented algorithms are listed in appendix \ref{app:algs}.
 
 \section{Algorithms}
 
@@ -1155,12 +1168,68 @@ Translating RC5 into Janus was difficult and required extra work in
 designing the reversible code. The encryption function is simple, but 
 the key expansion function has grown considerably during translation 
 even when partially altered - the last loop has a simplified exit 
-condition.
+condition. Eventually we decided to keep RC5 the way it is as a bad 
+example. It requires extra storage, the interface is wasteful, and the 
+code is complex. These properties should act as a warning to algorithm 
+designers - there are better and easier algorithms, including Salsa20 
+and Chacha20.
 
-\todo{polish RC5. L is not initialized because of the missing first 
-loop. encryption function has wrong api, it should do changes in-place}
+In this section we only look at one part of RC5, and that is the last 
+loop in the key expansion function. As a reminder from a previous 
+chapter, this is the loop in question:
 
-\begin{lstlisting}
+\begin{verbatim}
+do 3 * max(t, c) times:
+    A = S[i] = (S[i] + A + B) <<< 3
+    B = L[j] = (L[j] + A + B) <<< (A + B)
+    i = (i + 1) % t
+    j = (j + 1) % c
+\end{verbatim}
+
+Note that the loop iterates over two variables and the exit condition 
+also depends on two variables. Furthermore, variables \code{A} and 
+\code{B} are being reset on each iteration. To translate this into 
+Janus, we needed to understand the pattern of array accesses and 
+variable value progression. Finally, the code below should represent 
+the above closely up until one detail, which is the exit condition. 
+That condition was simplified to just one of those two variables, 
+\code{t}, which is more likely to be the maximum in the condition 
+expression in the loop above.
+
+\begin{lstlisting}[language=Janus,breaklines=true]
+	from k = 1 loop
+        //A = S[i] = ROTL(S[i] + (A + B), 3);
+        S[i] += A + B
+        call rotate_left_u32(S[i], 3)
+        if k % t = 0 then
+            A -= S[t-1]
+        else 
+            A -= S[i-1]
+        fi k % t = 0
+        A += S[i]
+        //B = L[j] = ROTL(L[j] + (A + B), (A + B));
+        L[j] += (A+B)
+        call rotate_left_u32_u32(L[j], A+B)
+        if k % c = 0 then
+            B -= L[c-1]
+        else 
+            B -= L[j-1]
+        fi k % c = 0
+        B += L[j]
+        
+        // final loop variable additions
+        k += 1
+        if i = t - 1 then
+            i -= (t-1)
+        else
+            i += 1
+        fi i = 0
+        if j = c - 1 then
+            j -= (c-1)
+        else
+            j += 1
+        fi j = 0
+    until k = (3 * t)
 \end{lstlisting}
 
 \subsection{Salsa20 and Chacha20}
@@ -1407,6 +1476,12 @@ relevant experience might not have had an issue, our encounter was
 rather confusing. The pseudocode provided in the specification saved 
 the day, although a proper implementation would still be appreciated.
 
+With both algorithms we would see a reduction of code size and 
+implementation difficulty with the use of the Janus functions proposed 
+above. In comparison to other algorithms, we see substantially higher 
+number of applications of Bennett's tricks (or simply uncalculations). 
+All in all, with respect to reversible implementation, there is little 
+else to add. 
 
 
 \chapter{Evaluation}
@@ -1432,6 +1507,7 @@ equivalent to calling the decryption function.
 The first goal remains and we deal with it here.
 
 \section{Design}
+\label{sec:eval:design}
 
 We already mentioned some options for verifying our claim in section 
 \ref{sec:verifmet}. The best tool for the job would be Vale, but that 
@@ -1454,6 +1530,11 @@ language is extremely complicated and the effort in learning Vale and
 implementing an algorithm in it might not be any lower than just using 
 a more classic language and using already established tools and methods 
 for debugging and tuning.
+
+While experimenting with Vale, we have attempted to implement the TEA 
+algorithm in it. The result has never been executed, nor even compiled, 
+but it shows how low-level and difficult the language is. It is listed 
+in appendix \ref{app:vale}.
 
 Since we cannot use Vale, the next best option is taint tracking in 
 combination with automatic cleanup of registers and stack memory. 
@@ -1527,12 +1608,14 @@ information leakage.
 The code is translated using Jana. There are no manual modifications to 
 make the code compile, however there are some modifications in order to 
 perform the experiment. One set of modifications is done so that we 
-secretgrind has tainted memory to track. A second set of 
-modifications is done in compliance with zerostack, and those 
-will be explained in the last step. We use the older version of 
-translation due to added complexity in recent Jana versions. Originally 
-Jana used a direct translation to C-style arrays, that was substituted 
-by \code{std::array} for a short time and then by \code{std::vector}. 
+secretgrind has tainted memory to track. A second set of modifications 
+is done in compliance with zerostack, and those will be explained in 
+the last step. We use the older version of translation due to added 
+complexity in recent Jana versions\footnote{The changes reverting the 
+translation to the old version can be found in the 
+\code{old\_array\_translation} branch in Jana's git.}. Originally Jana 
+used a direct translation to C-style arrays, that was substituted by 
+\code{std::array} for a short time and then by \code{std::vector}. 
 Reason for the replacement of C-style arrays was keeping some record of 
 the size of the array. Janus interpreter has a keyword \code{size}, 
 which returns the size of the array, since it is always known as it 
@@ -1540,8 +1623,8 @@ does not change. C, on the other hand, uses simple pointers to memory
 and does not track the size of the allocated block\footnote{Not related 
 to heap allocations, which do need to track that information 
 internally.}. The reason to stick to the original translation is 
-simplicity in tracking memory using secretgrind and the 
-immaturity of the recent changes to Jana.
+simplicity in tracking memory using secretgrind and the immaturity of 
+the recent changes to Jana.
 
 \subsection{Step 2: Reference}
 
@@ -2151,8 +2234,6 @@ GitHub\cite{revcry-github}. This includes the algorithms,
 supporting files like other source codes, binaries and listings, this 
 thesis source files and the wiki resources.
 
-\item \todo{what else?}
-
 \end{itemize}
 
 
@@ -2177,8 +2258,1063 @@ thesis source files and the wiki resources.
 % Updates section names to remove . (e.g. a section is named A1 instead of A.1)
 \renewcommand{\thesection}{\thechapter\arabic{section}}
 
-\chapter{The extra}
+\chapter{Janus Algorithms}
+\label{app:algs}
 
+\section{TEA family}
+\begin{lstlisting}[language=Janus,breaklines=true]
+/* TEA encryption algorithm
+ * data is an array of two words (64 bits)
+ * key is an array of four words (128 bits)
+ */
+procedure TEA_encipher(u32 data[], u32 key[])
+    local u32 delta = 2654435769
+    local u32 sum = 0
+    iterate int i = 1 by 1 to 32
+        sum += delta
+        data[0] += ((data[1] * 16) + key[0]) ^ (data[1] + sum) ^ ((data[1] / 32) + key[1])
+        data[1] += ((data[0] * 16) + key[2]) ^ (data[0] + sum) ^ ((data[0] / 32) + key[3])
+    end
+    delocal u32 sum = 32*delta
+    delocal u32 delta = 2654435769
+
+/* XTEA encryption algorithm
+ * num_rounds is the number of encryption rounds to perform
+ * data is an array of two words (64 bits)
+ * key is an array of four words (128 bits)
+ */
+procedure XTEA_encipher(int num_rounds, u32 data[], u32 key[])
+    local u32 delta = 2654435769
+    local u32 sum = 0
+    iterate int i = 1 by 1 to num_rounds
+        data[0] += (((data[1] * 16) ^ (data[1] / 32)) + data[1]) ^ (sum + key[((int) sum) & 3])
+        sum += delta
+        data[1] += (((data[0] * 16) ^ (data[0] / 32)) + data[0]) ^ (sum + key[(((int) sum) / 2048) & 3])
+    end
+    delocal u32 sum = ((u32) num_rounds) * delta
+    delocal u32 delta = 2654435769
+
+
+/* XXTEA encryption algorithm
+ * data is an array of any number of words (finally a block)
+ * key is an array of four words (128 bits)
+ */
+procedure XXTEA_encipher(u32 data[], u32 key[])
+    local u32 delta = 2654435769
+    local int n = 4 //size(data)
+    local u32 sum = 0
+    local u32 e = 0
+    local int p = 1
+    local int q = 6 + 52/n
+    from q = 6 + 52/n loop
+        sum += delta
+        e += (sum / 4) & 3
+        data[0] += ((((data[n-1] / 32) ^ (data[1] * 4)) + ((data[1] / 8) ^ (data[n-1] * 16))) ^ ((sum ^ data[1]) + (key[e] ^ data[n-1])))
+        from p = 1 loop
+            data[p] += ((((data[p-1] / 32) ^ (data[p+1] * 4)) + ((data[p+1] / 8) ^ (data[p-1] * 16))) ^ ((sum ^ data[p+1]) + (key[(p & 3) ^ (int) e] ^ data[p-1])))
+            p += 1
+        until p = n-1
+        data[n-1] += ((((data[n-2] / 32) ^ (data[0] * 4)) + ((data[0] / 8) ^ (data[n-2] * 16))) ^ ((sum ^ data[0]) + (key[(p & 3) ^ (int) e] ^ data[n-2])))
+        p -= (n-2)
+        e -= (sum / 4) & 3
+        q -= 1
+    until q = 0
+    delocal int q = 0
+    delocal int p = 1
+    delocal u32 e = 0
+    delocal u32 sum = (6+52 / (u32)n)*delta
+    delocal int n = 4 //size(data)
+    delocal u32 delta = 2654435769
+
+
+procedure main()
+    u32 key[4]
+    u32 data[2]
+    u32 more_data[4]
+    int num_rounds
+
+    key[0] += 0
+    key[1] += 1
+    key[2] += 2
+    key[3] += 3
+    
+    data[0] += 42
+    data[1] += 27
+    
+    more_data[0] += 42
+    more_data[1] += 27
+    more_data[2] += 42
+    more_data[3] += 27
+    
+    num_rounds += 32
+    
+    show(data)
+    call TEA_encipher(data, key)
+    show(data)
+    uncall TEA_encipher(data, key)
+    show(data)
+    call XTEA_encipher(num_rounds, data, key)
+    show(data)
+    uncall XTEA_encipher(num_rounds, data, key)
+    show(more_data)
+    call XXTEA_encipher(more_data, key)
+    show(more_data)
+    uncall XXTEA_encipher(more_data, key)
+\end{lstlisting}
+
+\section{RC5}
+\begin{lstlisting}[language=Janus,breaklines=true]
+// two versions of left rotation due to Jana's bug
+/* Rotate 'x' by 'r' bits to the left */
+procedure rotate_left_u32(u32 x, int r)
+    local int rm = r % 32
+    local int rmc = 32 - rm
+    local u32 y = (x << rm) | (x >> rmc)
+    x <=> y
+    delocal u32 y = (x >> rm) | (x << rmc)
+    delocal int rmc = 32 - rm
+    delocal int rm = r % 32
+
+/* Rotate 'x' by 'r' bits to the left */
+procedure rotate_left_u32_u32(u32 x, u32 r)
+    local u32 rm = r % 32
+    local u32 rmc = 32 - rm
+    local u32 y = (x << rm) | (x >> rmc)
+    x <=> y
+    delocal u32 y = (x >> rm) | (x << rmc)
+    delocal u32 rmc = 32 - rm
+    delocal u32 rm = r % 32
+
+
+/* Set up RC5 key
+ * w   = The length of a word in bits, typically 16, 32 or 64. Encryption is done in 2-word blocks.
+ * u   = w/8 - The length of a word in bytes.
+ * b   = The length of the key in bytes.
+ * K[] = The key, considered as an array of bytes (using 0-based indexing).
+ * c   = The length of the key in words (or 1, if b = 0).
+ * L[] = A temporary working array used during key scheduling. initialized to the key in words.
+ * r   = The number of rounds to use when encrypting data.
+ * t   = 2(r+1) - the number of round subkeys required.
+ * S[] = The round subkey words.
+ */
+procedure RC5_setup(u32 K[], u32 S[], int rounds, u32 L[])
+    // w = 32, r = 12, b = 16
+    // c = max(1, ceil(8 * b/w))
+    // t = 2 * (r+1)
+    //WORD i, j, k, u = w/8, A, B, L[c];
+    local int b = size(K) * 4
+    local int c = b / 4
+    local int r = rounds
+    local int t = 2 * (r+1)
+    local int i = b-1
+    local int j = 1
+    local int k = 1
+    local u32 u = 4 // = w/8
+    local u32 A = 0
+    local u32 B = 0
+    local u32 P = 3084996963 // magic constant; dependent on w, which we set to 32
+    local u32 Q = 2654435769 // magic constant; dependent on w, which we set to 32
+   
+    /* The following loop is rather silly:
+     * K: assumed array of bytes
+     * L: array of words (ints)
+     * starting with the following key and 16-bit words, we get the array L below:
+     * K: [0][1][2][3][4][5] 
+     * L: [10][32][54]
+     * but in little endian, L is exactly the same as K
+     */
+    //for(i = b-1, L[c-1] = 0; i != -1; i--)
+    //from i = b-1 loop
+      //  //L[i/u] = (L[i/u] << 8) + K[i];
+        //L[i/u] *= 256 // multiplication is not generally reversible :(
+        //L[i/u] += K[i]
+        //i -= 1
+    //until i = -1
+    //i += 2
+    i -= (b-2) //we skipped the loop above, thus we manually set i to 1
+   
+    //for(S[0] = P, i = 1; i < t; i++)
+    S[0] += P
+    from i = 1 loop
+        //S[i] = S[i-1] + Q;
+        S[i] += S[i-1] + Q
+        i += 1
+    until i = t
+    
+    i -= t - 1 // i = 1
+    // we are partially unrolling the loop to avoid an if-branch
+    S[0] += A + B
+    call rotate_left_u32(S[0], 3)
+    A += S[0]
+    L[0] += A
+    call rotate_left_u32_u32(L[0], A)
+    B += L[0]
+    //for(A = B = i = j = k = 0; k < 3 * t; k++, i = (i+1) % t, j = (j+1) % c)
+    from k = 1 loop
+        //A = S[i] = ROTL(S[i] + (A + B), 3);
+        S[i] += A + B
+        call rotate_left_u32(S[i], 3)
+        if k % t = 0 then
+            A -= S[t-1]
+        else 
+            A -= S[i-1]
+        fi k % t = 0
+        A += S[i]
+        //B = L[j] = ROTL(L[j] + (A + B), (A + B));
+        L[j] += (A+B)
+        call rotate_left_u32_u32(L[j], A+B)
+        if k % c = 0 then
+            B -= L[c-1]
+        else 
+            B -= L[j-1]
+        fi k % c = 0
+        B += L[j]
+        
+        // final loop variable additions
+        k += 1
+        if i = t - 1 then
+            i -= (t-1)
+        else
+            i += 1
+        fi i = 0
+        if j = c - 1 then
+            j -= (c-1)
+        else
+            j += 1
+        fi j = 0
+    until k = (3 * t)
+    
+    delocal u32 Q = 2654435769 // magic constant; dependent on w, which we set to 32
+    delocal u32 P = 3084996963 // magic constant; dependent on w, which we set to 32
+    //delocal u32 S[t] = {0}
+    delocal u32 B = L[j-1] // WARNING: potential out of bounds access.
+    delocal u32 A = S[t-1]
+    //delocal u32 L[c] = {0}
+    delocal u32 u = 4 // = w/8
+    delocal int k = 3*t
+    delocal int j = (3*t) % c
+    delocal int i = 0
+    delocal int t = 2 * (r+1)
+    delocal int r = rounds
+    delocal int c = b / 4
+    delocal int b = size(K) * 4
+
+// pt = plaintext, ct = ciphertext
+procedure RC5_encrypt(u32 pt[2], u32 ct[2], u32 extkey[], int rounds)
+    local int i = 1
+    local u32 A = 0
+    local u32 B = 0
+    A += pt[0] + extkey[0]
+    B += pt[1] + extkey[1]
+    
+    from i = 1 loop
+        A ^= B
+        call rotate_left_u32_u32(A, B)
+        A += extkey[2*i]
+        
+        B ^= A
+        call rotate_left_u32_u32(B, A)
+        B += extkey[2*i + 1]
+        
+        i += 1
+    until i = rounds
+    ct[0] += A
+    ct[1] += B
+    delocal u32 B = ct[1]
+    delocal u32 A = ct[0]
+    delocal int i = rounds
+
+procedure main()
+    u32 x1
+    u32 x2
+    u32 n
+
+    
+    int rounds = 12
+    int ek_len = 2 * (rounds + 1)
+    u32 key[4] = {1,2,3,4} //538976288
+    u32 expanded_key[ek_len]
+    u32 temporary_storage[300]
+    u32 plaintext[2] = {42, 17}
+    u32 ciphertext[2]
+
+
+    //local int test_rotation = -1209970333
+    local u32 test_rotation = 1073741827
+    local u32 test_rotation2[2] = {1073741827, 0}
+    show(test_rotation)
+    call rotate_left_u32(test_rotation, 35)
+    call rotate_left_u32(test_rotation2[0], 35)
+    show(test_rotation)
+    show(test_rotation2)
+    //delocal int test_rotation = -1089828067
+    delocal u32 test_rotation2[2] = {26, 0}
+    delocal u32 test_rotation = 26
+
+    //call test_rev(plaintext[0])
+
+    //show(expanded_key)
+    call RC5_setup(key, expanded_key, rounds, temporary_storage)
+    call RC5_encrypt(plaintext, ciphertext, expanded_key, rounds)
+    show(ciphertext)
+    uncall RC5_encrypt(plaintext, ciphertext, expanded_key, rounds)
+    uncall RC5_setup(key, expanded_key, rounds, temporary_storage)
+\end{lstlisting}
+
+\section{Salsa20}
+\begin{lstlisting}[language=Janus,breaklines=true]
+// see https://cr.yp.to/snuffle/spec.pdf
+
+procedure rotate_left_u32(u32 x, int r)
+    local int rm = r % 32
+    local int rmc = 32 - rm
+    local u32 y = ( x << rm) | (x >> rmc)
+    x <=> y
+    delocal u32 y = ( x >> rm) | (x << rmc)
+    delocal int rmc = 32 - rm
+    delocal int rm = r % 32
+
+procedure quarterround(u32 seq[4])
+	local u32 tmp = 0
+	// z1 = y1 ^ ((y0 + y3) <<< 7)
+	tmp += seq[0] + seq[3]
+	call rotate_left_u32(tmp, 7)
+	seq[1] ^= tmp
+	uncall rotate_left_u32(tmp, 7)
+	tmp -= (seq[0] + seq[3])
+	
+	// z2 = y2 ^ ((z1 + y0) <<< 9)
+	tmp += seq[1] + seq[0]
+	call rotate_left_u32(tmp, 9)
+	seq[2] ^= tmp
+	uncall rotate_left_u32(tmp, 9)
+	tmp -= (seq[1] + seq[0])
+  
+	// z3 = z3 ^ ((z2 + z1) <<< 13)
+	tmp += seq[2] + seq[1]
+	call rotate_left_u32(tmp, 13)
+	seq[3] ^= tmp
+	uncall rotate_left_u32(tmp, 13)
+	tmp -= (seq[2] + seq[1])
+  
+	// z0 = z0 ^ ((z3 + z2) <<< 18)
+	tmp += seq[3] + seq[2]
+	call rotate_left_u32(tmp, 18)
+	seq[0] ^= tmp
+	uncall rotate_left_u32(tmp, 18)
+	tmp -= (seq[3] + seq[2])
+  
+	delocal u32 tmp = 0
+
+// The two procedures below are just for showing the 2nd Bennett's trick
+//procedure quarterround_bt(u32 in_seq[4], u32 out_seq[4])
+	//local u32 tmp_rot = 0
+	//// z1 = y1 ^ ((y0 + y3) <<< 7)
+	//tmp_rot += in_seq[0]
+	//tmp_rot += in_seq[3]
+	//call rotate_left_u32(tmp_rot, 7)
+	//out_seq[1] += in_seq[1] ^ tmp_rot
+	//tmp_rot ^= in_seq[1] // tmp_rot = z1
+	//// z2 = y2 ^ ((z1 + y0) <<< 9)
+	//tmp_rot += in_seq[0]
+	//call rotate_left_u32(tmp_rot, 9)
+	//out_seq[2] += in_seq[2] ^ tmp_rot
+	//tmp_rot ^= in_seq[2] // tmp_rot = z2
+	//// z3 = y3 ^ ((z2 + z1) <<< 13)
+	//tmp_rot += out_seq[1]
+	//call rotate_left_u32(tmp_rot, 13)
+	//out_seq[3] += in_seq[3] ^ tmp_rot
+	//tmp_rot ^= in_seq[3] // tmp_rot = z3
+	//// z0 = y0 ^ ((z3 + z2) <<< 18)
+	//tmp_rot += out_seq[2]
+	//call rotate_left_u32(tmp_rot, 18)
+	//out_seq[0] += in_seq[0] ^ tmp_rot
+	//tmp_rot ^= out_seq[0] ^ in_seq[0] // tmp_rot = 0
+	////tmp_rot ^= out_seq[0]  // tmp_rot = 0
+	//delocal u32 tmp_rot = 0
+
+//procedure quarterround(u32 seq[4])
+	//local u32 tmp_seq[4]
+	//call quarterround_bt(seq, tmp_seq)
+	//seq[0] <=> tmp_seq[0]
+	//seq[1] <=> tmp_seq[1]
+	//seq[2] <=> tmp_seq[2]
+	//seq[3] <=> tmp_seq[3]
+	//uncall quarterround_bt(seq, tmp_seq)
+	//// turns out the above is the second Bennett trick - uncomputing the input using the reverse of the computation on the output. [Bennett 73]
+	//delocal u32 tmp_seq[4]
+
+procedure rowround(u32 seq[16])
+	local u32 tmp_row[4]
+	// first row
+	tmp_row[0] <=> seq[0]
+	tmp_row[1] <=> seq[1]
+	tmp_row[2] <=> seq[2]
+	tmp_row[3] <=> seq[3]
+	call quarterround(tmp_row)
+	tmp_row[0] <=> seq[0]
+	tmp_row[1] <=> seq[1]
+	tmp_row[2] <=> seq[2]
+	tmp_row[3] <=> seq[3]
+	// second row
+	tmp_row[0] <=> seq[5]
+	tmp_row[1] <=> seq[6]
+	tmp_row[2] <=> seq[7]
+	tmp_row[3] <=> seq[4]
+	call quarterround(tmp_row)
+	tmp_row[0] <=> seq[5]
+	tmp_row[1] <=> seq[6]
+	tmp_row[2] <=> seq[7]
+	tmp_row[3] <=> seq[4]
+	// third row
+	tmp_row[0] <=> seq[10]
+	tmp_row[1] <=> seq[11]
+	tmp_row[2] <=> seq[8]
+	tmp_row[3] <=> seq[9]
+	call quarterround(tmp_row)
+	tmp_row[0] <=> seq[10]
+	tmp_row[1] <=> seq[11]
+	tmp_row[2] <=> seq[8]
+	tmp_row[3] <=> seq[9]
+	// fourth row
+	tmp_row[0] <=> seq[15]
+	tmp_row[1] <=> seq[12]
+	tmp_row[2] <=> seq[13]
+	tmp_row[3] <=> seq[14]
+	call quarterround(tmp_row)
+	tmp_row[0] <=> seq[15]
+	tmp_row[1] <=> seq[12]
+	tmp_row[2] <=> seq[13]
+	tmp_row[3] <=> seq[14]
+	delocal u32 tmp_row[4]
+
+procedure columnround(u32 seq[16])
+	local u32 tmp_col[4]
+	// first row
+	tmp_col[0] <=> seq[0]
+	tmp_col[1] <=> seq[4]
+	tmp_col[2] <=> seq[8]
+	tmp_col[3] <=> seq[12]
+	call quarterround(tmp_col)
+	tmp_col[0] <=> seq[0]
+	tmp_col[1] <=> seq[4]
+	tmp_col[2] <=> seq[8]
+	tmp_col[3] <=> seq[12]
+	// second row
+	tmp_col[0] <=> seq[5]
+	tmp_col[1] <=> seq[9]
+	tmp_col[2] <=> seq[13]
+	tmp_col[3] <=> seq[1]
+	call quarterround(tmp_col)
+	tmp_col[0] <=> seq[5]
+	tmp_col[1] <=> seq[9]
+	tmp_col[2] <=> seq[13]
+	tmp_col[3] <=> seq[1]
+	// third row
+	tmp_col[0] <=> seq[10]
+	tmp_col[1] <=> seq[14]
+	tmp_col[2] <=> seq[2]
+	tmp_col[3] <=> seq[6]
+	call quarterround(tmp_col)
+	tmp_col[0] <=> seq[10]
+	tmp_col[1] <=> seq[14]
+	tmp_col[2] <=> seq[2]
+	tmp_col[3] <=> seq[6]
+	// fourth row
+	tmp_col[0] <=> seq[15]
+	tmp_col[1] <=> seq[3]
+	tmp_col[2] <=> seq[7]
+	tmp_col[3] <=> seq[11]
+	call quarterround(tmp_col)
+	tmp_col[0] <=> seq[15]
+	tmp_col[1] <=> seq[3]
+	tmp_col[2] <=> seq[7]
+	tmp_col[3] <=> seq[11]
+	delocal u32 tmp_col[4]
+
+procedure doubleround(u32 seq[16])
+	call columnround(se1)
+	call rowround(seq)
+
+// I don't know if this can be done without Bennett
+procedure Salsa20(u32 in[16], u32 out[16])
+	iterate int i = 0 by 1 to 16
+		out[i] += in[i]
+	end
+	iterate int i = 0 by 1 to 10
+		call doubleround(out)
+	end
+	iterate int i = 0 by 1 to 16
+		out[i] += in[i]
+	end
+
+procedure Salsa20_setup_seq(u32 k0[4], u32 k1[4], u32 filler[4], u32 n[4], u32 seq[16])
+	seq[0] += filler[0]
+	iterate int i = 0 by 1 to 4
+		seq[i+1] += k0[i]
+	end
+	seq[5] += filler[1]
+	iterate int i = 0 by 1 to 4
+		seq[i+6] += n[i]
+	end
+	seq[10] += filler[2]
+	iterate int i = 0 by 1 to 4
+		seq[i+11] += k1[i]
+	end
+	seq[15] += filler[3]
+
+procedure Salsa20_k32(u32 k0[4], u32 k1[4], u32 n[4], u32 out[16])
+	local u32 sigma[4] = {1634760805, 857760878, 2036477234, 1797285236}
+	local u32 seq[16]
+	call Salsa20_setup_seq(k0, k1, n, sigma, seq)
+	call Salsa20(seq, out)
+	uncall Salsa20_setup_seq(k0, k1, n, sigma, seq)
+	delocal u32 seq[16] 
+	delocal u32 sigma[4] = {1634760805, 857760878, 2036477234, 1797285236}
+
+procedure Salsa20_k16(u32 k0[4], u32 n[4], u32 out[16])
+	local u32 tau[4] = {1634760805, 824206446, 2036477238, 1797285236}
+	local u32 seq[16]
+	call Salsa20_setup_seq(k0, k0, n, tau, seq)
+	call Salsa20(seq, out)
+	uncall Salsa20_setup_seq(k0, k0, n, tau, seq)
+	delocal u32 seq[16] 
+	delocal u32 tau[4] = {1634760805, 824206446, 2036477238, 1797285236}
+
+// So, the two procedures above are the minimum for Salsa20 encryption. 
+// The paper splits 'n' into a 64-bit nonce and a 64-bit byte sequence 
+// number (a byte ID from 0 to 2^64-1). Maximum message length is 2^70, 
+// possibly due to some crypto-related reason.
+
+
+procedure main()
+	u32 seq[4] = {1, 0, 0, 0}
+	u32 tmp_seq[4]
+	show(seq)
+	call quarterround(seq)
+	//call quarterround_bt(seq, tmp_seq)
+	
+\end{lstlisting}
+
+\section{Chacha20}
+\begin{lstlisting}[language=Janus,breaklines=true]
+// see https://cr.yp.to/chacha/chacha-20080128.pdf
+    
+procedure rotate_left_u32(u32 x, int r)
+    local int rm = r % 32
+    local int rmc = 32 - rm
+    local u32 y = ( x << rm) | (x >> rmc)
+    x <=> y
+    delocal u32 y = ( x >> rm) | (x << rmc)
+    delocal int rmc = 32 - rm
+    delocal int rm = r % 32
+
+// This and the following procedure differ from Salsa
+procedure quarterround(u32 seq0, u32 seq1, u32 seq2, u32 seq3)
+	//a += b; d ^= a; d <<<= 16;
+	seq0 += seq1
+	seq3 ^= seq0
+	call rotate_left_u32(seq3, 16)
+	//c += d; b ^= c; b <<<= 12;
+	seq2 += seq3
+	seq1 ^= seq2
+	call rotate_left_u32(seq1, 12)
+	//a += b; d ^= a; d <<<= 8;
+	seq0 += seq1
+	seq3 ^= seq0
+	call rotate_left_u32(seq3, 8)
+	//c += d; b ^= c; b <<<= 7;
+	seq2 += seq3
+	seq1 ^= seq2
+	call rotate_left_u32(seq1, 7)
+
+procedure doubleround(u32 seq[16])
+	// first column
+	call quarterround(seq[0], seq[4], seq[8], seq[12])
+	// second column
+	call quarterround(seq[1], seq[5], seq[9], seq[13])
+	// third column
+	call quarterround(seq[2], seq[6], seq[10], seq[14])
+	// fourth column
+	call quarterround(seq[3], seq[7], seq[11], seq[15])
+	// first diagonal
+	call quarterround(seq[0], seq[5], seq[10], seq[15])
+	// second diagonal
+	call quarterround(seq[1], seq[6], seq[11], seq[12])
+	// third diagonal
+	call quarterround(seq[2], seq[7], seq[8], seq[13])
+	// fourth diagonal
+	call quarterround(seq[3], seq[4], seq[9], seq[14])
+
+
+// I don't know if this can be done without Bennett
+procedure Chacha20(u32 in[16], u32 out[16])
+	iterate int i = 0 by 1 to 15
+		out[i] += in[i]
+	end
+	iterate int i = 0 by 1 to 9
+		call doubleround(out)
+	end
+	iterate int i = 0 by 1 to 15
+		out[i] += in[i]
+	end
+
+procedure Chacha20_setup_seq(u32 k0[4], u32 k1[4], u32 n[4], u32 filler[4], u32 seq[16])
+	seq[0] += filler[0]
+	iterate int i = 0 by 1 to 3
+		seq[i+1] += k0[i]
+	end
+	seq[5] += filler[1]
+	iterate int i = 0 by 1 to 3
+		seq[i+6] += n[i]
+	end
+	seq[10] += filler[2]
+	iterate int i = 0 by 1 to 3
+		seq[i+11] += k1[i]
+	end
+	seq[15] += filler[3]
+
+procedure Chacha20_k32(u32 k0[4], u32 k1[4], u32 n[4], u32 out[16])
+	local u32 sigma[4] = {1634760805, 857760878, 2036477234, 1797285236}
+	local u32 seq[16]
+	call Chacha20_setup_seq(k0, k1, n, sigma, seq)
+	call Chacha20(seq, out)
+	uncall Chacha20_setup_seq(k0, k1, n, sigma, seq)
+	delocal u32 seq[16]
+	delocal u32 sigma[4] = {1634760805, 857760878, 2036477234, 1797285236}
+
+procedure Chacha20_k16(u32 k0[4], u32 n[4], u32 out[16])
+	local u32 tau[4] = {1634760805, 824206446, 2036477238, 1797285236}
+	local u32 seq[16]
+	call Chacha20_setup_seq(k0, k0, n, tau, seq)
+	call Chacha20(seq, out)
+	uncall Chacha20_setup_seq(k0, k0, n, tau, seq)
+	delocal u32 seq[16]
+	delocal u32 tau[4] = {1634760805, 824206446, 2036477238, 1797285236}
+
+// So, the two procedures above are the minimum for Chacha20 encryption. 
+// The paper splits 'n' into a 64-bit nonce and a 64-bit byte sequence 
+// number (a byte ID from 0 to 2^64-1). Maximum message length is 2^70, 
+// possibly due to some crypto-related reason.
+
+procedure Chacha20_encrypt(u32 str[], u32 stream[])
+	local int len = 16
+	iterate int i = 0 by 1 to len - 1
+		str[i] ^= stream[i]
+	end
+	delocal int len = 16
+
+procedure main()
+	u32 tau[4] = {1634760805, 824206446, 2036477238, 1797285236}
+	u32 seq[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	u32 k0[4] = {67305985, 134678021, 202050057, 269422093}
+	u32 k1[4] = {3435907785, 3503279821, 3570651857, 3638023893}
+	u32 n[4] = {1751606885, 1818978921, 1886350957, 1953722993}
+	u32 out_s[16]
+
+	print("Chacha20 stream buffer before initialization:")
+	show(out_s)
+	call Chacha20_k16(k0, n, out_s)
+	print("Chacha20 stream buffer after initialization:")
+	show(out_s)
+	
+	print("String to encrypt:")
+	show(seq)
+	call Chacha20_encrypt(seq, out_s)
+	print("String encrypted:")
+	show(seq)
+	call Chacha20_encrypt(seq, out_s) //since it's doing a XOR, it can be both `call` or `uncall`
+	print("String decrypted:")
+	show(seq)
+	
+	uncall Chacha20_k16(k0, n, out_s)
+	print("Chacha20 stream buffer after de-initialization:")
+	show(out_s)
+\end{lstlisting}
+
+\section{Simon}
+\begin{lstlisting}[language=Janus,breaklines=true]
+// https://eprint.iacr.org/2013/404.pdf
+
+/* Rotate 'x' by 'r' bits to the left */
+procedure rotate_left_u32(u32 x, int r)
+    local int rm = r % 32
+    local int rmc = 32 - rm
+    local u32 y = (x << rm) | (x >> rmc)
+    x <=> y
+    delocal u32 y = (x >> rm) | (x << rmc)
+    delocal int rmc = 32 - rm
+    delocal int rm = r % 32
+
+/* z0 = 4506230155203752166
+ * z1 = 2575579794259089498
+ * z2 = 3160415496042964403
+ * z3 = 3957284701066611983
+ * z4 = 3781244162168104175
+ */
+
+procedure set_T_j(int n, int m, int T, int j)
+    if n = 16 then
+        T += 32
+    fi n = 16
+    
+    if n = 24 then
+        T += 36
+        if m = 4 then
+            j += 1
+        fi m = 4
+    fi n = 24
+    
+    if n = 32 then
+        if m = 3 then
+            T += 42 
+            j += 2
+        fi m = 3
+        if m = 4 then
+            T += 44
+            j += 3
+        fi m = 4
+    fi n = 32
+    
+    if n = 48 then
+        if m = 2 then
+            T += 52 
+            j += 2
+        fi m = 2
+        if m = 3 then
+            T += 54
+            j += 3
+        fi m = 3
+    fi n = 48
+    
+    if n = 64 then
+        if m = 2 then
+            T += 68
+            j += 2
+        fi m = 2
+        if m = 3 then
+            T += 69
+            j += 3
+        fi m = 3
+        if m = 4 then
+            T += 72
+            j += 4
+        fi m = 4
+    fi n = 64
+
+procedure get_tmp(u32 k1, u32 k2, int m, u32 tmp, u32 garbage)
+    tmp += k1
+    uncall rotate_left_u32(tmp, 3)
+    if m = 4 then
+        tmp ^= k2
+    fi m = 4
+    garbage += tmp
+    call rotate_left_u32(tmp, 1)
+    tmp ^= garbage
+
+procedure get_bit(int j, int i, u32 bit)
+    local u32 z[5] = {0b11111010001001010110000111001101111101000100101011000011100110,
+                      0b10001110111110010011000010110101000111011111001001100001011010,
+                      0b10101111011100000011010010011000101000010001111110010110110011,
+                      0b11011011101011000110010111100000010010001010011100110100001111,
+                      0b11010001111001101011011000100000010111000011001010010011101111}
+    if ((z[j] & (1 << (32 - i))) != 0) then
+        bit += 1
+    fi ((z[j] & (1 << (32 - i))) != 0)
+    delocal u32 z[5] = {0b11111010001001010110000111001101111101000100101011000011100110,
+                        0b10001110111110010011000010110101000111011111001001100001011010,
+                        0b10101111011100000011010010011000101000010001111110010110110011,
+                        0b11011011101011000110010111100000010010001010011100110100001111,
+                        0b11010001111001101011011000100000010111000011001010010011101111}
+
+procedure Simon_key_expansion(u32 key[], u32 key_expanded[])
+    local int m = size(key)
+    local int T = 0
+    local int j = 0
+    local u32 tmp = 0
+    local u32 garbage = 0
+    local u32 bit = 0
+    call set_T_j(32, m, T, j)
+    iterate int i = 0 by 1 to (m-1)
+        key_expanded[i] += key[i]
+    end
+    iterate int i = m by 1 to (T-2)
+        call get_tmp(key_expanded[i-1], key_expanded[i-3], m, tmp, garbage)
+        call get_bit(j, i-m % 62, bit)
+        //k[i] += ~k[i-m] ^ tmp ^ z[j][i-m % 62] ^ 3
+        key_expanded[i] += ~key_expanded[i-m] ^ tmp ^ bit ^ 3
+        uncall get_bit(j, i-m % 62, bit)
+        uncall get_tmp(key_expanded[i-1], key_expanded[i-3], m, tmp, garbage)
+    end
+    uncall set_T_j(32, m, T, j)
+    delocal u32 bit = 0
+    delocal u32 garbage = 0
+    delocal u32 tmp = 0
+    delocal int j = 0
+    delocal int T = 0
+    delocal int m = size(key)
+
+// we don't want to employ Benett's trick, I think that's counterproductive in our case (for cryptoanalysis)
+
+procedure Simon_encipher(u32 data[2], u32 key[])
+    local int T = 0
+    local int j = 0
+    call set_T_j(32, size(key), T, j)
+    local u32 key_expanded[T]
+	local int i = 0
+    local u32 x1 = 0 //these variables are a nightmare to get rid of
+    local u32 x2 = 0
+    local u32 x8 = 0
+    local u32 rx = 0
+    
+    call Simon_key_expansion(key, key_expanded)
+    from i = 0 loop
+        x1 += data[0]
+        uncall rotate_left_u32(x1, 1)
+        x2 += data[0]
+        uncall rotate_left_u32(x2, 2)
+        x8 += data[0]
+        uncall rotate_left_u32(x8, 8)
+        /* From the inverse round function from the specs:
+         * R(x, y)    = (y ^ f(x) ^ k, x)
+         * R^-1(x, y) = (y, x ^ f(x) ^ k)
+         * (x,y) = R^-1(R(x,y)) = R^-1(y ^ f(x) ^ k, x) = (x, y ^ f(x) ^ k ^ f(x) ^ k)) = (x,y)
+         */
+        // R(x, y) = (y ^ f(x) ^ k, x)
+        data[1] ^= (x1 & x8) ^ x2 ^ key_expanded[i]
+        data[0] <=> data[1]
+        //x2 -= data[0] ^ (x1 & x8) ^ key_expanded[i]
+        // R^-1(x, y) = (y, x ^ f(x) ^ k)
+        rx += data[1]
+        call rotate_left_u32(x1, 1)
+        x1 -= rx
+        call rotate_left_u32(x2, 2)
+        x2 -= rx
+        call rotate_left_u32(x8, 8)
+        x8 -= rx
+        rx -= data[1]
+        i += 1
+    until i = T
+    uncall Simon_key_expansion(key, key_expanded)
+    
+    delocal u32 rx = 0
+    delocal u32 x8 = 0
+    delocal u32 x2 = 0
+    delocal u32 x1 = 0
+    delocal int i = T
+    delocal u32 key_expanded[T]
+    uncall set_T_j(32, size(key), T, j)
+    delocal int j = 0
+    delocal int T = 0
+
+procedure main()
+    u32 key[4]
+    u32 data[2]
+
+    key[0] += 0
+    key[1] += 1
+    key[2] += 2
+    key[3] += 3
+    
+    data[0] += 42
+    data[1] += 27
+    
+    show(data)
+    call Simon_encipher(data, key)
+    show(data)
+    uncall Simon_encipher(data, key)
+    show(data)
+\end{lstlisting}
+
+\section{Speck}
+\begin{lstlisting}[language=Janus,breaklines=true]
+// https://eprint.iacr.org/2013/404.pdf
+
+/* Rotate 'x' by 'r' bits to the left */
+procedure rotate_left_u32(u32 x, int r)
+    local int rm = r % 32
+    local int rmc = 32 - rm
+    local u32 y = (x << rm) | (x >> rmc)
+    x <=> y
+    delocal u32 y = (x >> rm) | (x << rmc)
+    delocal int rmc = 32 - rm
+    delocal int rm = r % 32
+
+procedure Speck_key_secondary_sequence(u32 key[], u32 l[], int rounds)
+    local int m = size(key)
+    local int i = 0
+    l[0] += key[1]
+    if m > 2 then
+        l[1] += key[2]
+        if m > 3 then
+            l[2] += key[3]
+        fi m > 3
+    fi m > 2
+    from i = 0 loop
+        uncall rotate_left_u32(l[i], 8)
+        l[i+m-1] += (key[i] + l[i]) ^ (u32) i
+        call rotate_left_u32(l[i], 8)
+        i += 1
+    until i = (rounds - 1)
+    delocal int i = (rounds - 1)
+    delocal int m = size(key)
+
+procedure round(u32 x, u32 y, u32 k)
+    // (S^-8 x, y)
+    uncall rotate_left_u32(x, 8)
+    // (S^-8 x + y, y)
+    x += y
+    // ((S^-8 x + y) ^ k, y)
+    x ^= k
+    // ((S^-8 x + y) ^ k, S^3 y)
+    call rotate_left_u32(y, 3)
+    // ((S^-8 x + y) ^ k, S^3 y ^ (S^-8 x + y) ^ k)
+    y ^= x
+
+procedure Speck_key_expansion(u32 key[], u32 key_expanded[], int rounds)
+    local int m = size(key)
+    local u32 i = 0
+    local u32 l[m+rounds]
+    key_expanded[0] += key[0]
+    call Speck_key_secondary_sequence(key, l, rounds)
+    from i = 0 loop
+        //todo: this with the secondary sequence generation can be replaced with a generic round function, the same as in encryption
+        // -- actually, no. Because 1) l and key_expanded would have to coexist and 2) see the 2nd version for the real reason.
+        call rotate_left_u32(key_expanded[i], 3)
+        key_expanded[i+1] += key_expanded[i] ^ l[i+m-1]
+        uncall rotate_left_u32(key_expanded[i], 3)
+        i += 1
+    until i = (rounds - 1)
+    uncall Speck_key_secondary_sequence(key, l, rounds)
+    delocal u32 l[m+rounds]
+    delocal u32 i = (rounds - 1)
+    delocal int m = size(key)
+
+// NOT FUNCTIONAL
+procedure Speck_key_expansion2(u32 key[], u32 key_expanded[], u32 l_sequence[], int rounds)
+    local int m = size(key)
+    key_expanded[0] += key[0]
+    l_sequence[0] += key[1]
+    if m > 2 then
+        l_sequence[1] += key[2]
+        if m > 3 then
+            l_sequence[2] += key[3]
+        fi m > 3
+    fi m > 2
+    iterate int i = 0 by 1 to (rounds - 2)
+        // can't be done like this, we need to specify that we're reading from k[i] and writing to k[i+1]
+        call round(l_sequence[i+m-1], key_expanded[i+1], (u32) i)
+    end
+    delocal int m = size(key)
+    
+
+// we don't want to employ Benett's trick, I think that's counterproductive in our case (for cryptoanalysis)
+
+procedure Speck_encipher(u32 data[2], u32 key[], int rounds)
+    local int m = size(key)
+    local u32 key_expanded[rounds]
+    local u32 l_sequence[m+rounds]
+    call Speck_key_expansion2(key, key_expanded, l_sequence, rounds)
+    iterate int i = 0 by 1 to (rounds - 1)
+        call round(data[0], data[1], key_expanded[i])
+    end
+    uncall Speck_key_expansion2(key, key_expanded, l_sequence, rounds)
+    delocal u32 l_sequence[m+rounds]
+    delocal u32 key_expanded[rounds]
+    delocal int m = size(key)
+
+
+procedure main()
+    u32 key[4]
+    u32 data[2]
+    u32 more_data[4]
+    int num_rounds
+
+    key[0] += 0
+    key[1] += 1
+    key[2] += 2
+    key[3] += 3
+    
+    data[0] += 42
+    data[1] += 27
+    
+    num_rounds += 32
+    
+    show(data)
+    call Speck_encipher(data, key, num_rounds)
+    show(data)
+    uncall Speck_encipher(data, key, num_rounds)
+    show(data)
+\end{lstlisting}
+
+\chapter{Experimental Vale algorithm}
+\label{app:vale}
+
+\begin{lstlisting}[language=Vale,breaklines=true]
+/* TEA encryption algorithm
+ * data is an array of two words (64 bits)
+ * key is an array of four words (128 bits)
+ */
+
+procedure TEA_encipher(ghost data : heaplet_id, ghost key : heaplet_id, inline tnt:taint)
+	requires:
+		//SeqLength(key) == 4;
+		//SeqLength(data) == 2;
+	reads:
+		mem; edi; esi;
+	modifies:
+		eax; ebx; ecx; edx; mem;
+{
+	var delta : int := 2654435769;
+	var sum : int := 0;
+	var i : int := 0;
+	for (ecx := 0; ecx != 32; ecx++) decreases ecx; {
+		//sum := sum + delta
+		Add32Wrap(sum, delta);
+		//data[0] := data[0] + (((data[1] * 16) + key[0]) ^ (data[1] + sum) ^ ((data[1] / 32) + key[1]))
+		Load(ebx, edi, 4, tnt, data); // data[1]
+		Mov32(eax, 16); // 16
+		Mult32Wrap??(ebx, eax); // data[1]*16
+		Load(eax, esi, 0, tnt, key); // key[0]
+		Add32Wrap(ebx, eax); // data[1]*16 + key[0]
+		Load(edx, edi, 4, tnt, data); // data[1]
+		Mov32(eax, sum); // sum
+		Add32Wrap(eax, edx); // data[1] + sum
+		Xor32(ebx, eax);
+		Load(edx, edi, 4, tnt, data); // data[1]
+		Shr32(edx, 5); // data[1] / 32
+		Load(eax, esi, 4, tnt, key); // key[1]
+		Add32Wrap(edx, eax); // (data[1] / 32) + key[0]
+		Xor32(ebx, edx);
+		Load(edx, edi, 0, tnt, data); // data[0]
+		Add32Wrap(ebx, edx);
+		Store(edi, ebx, 0, tnt, data); // data[0]
+		
+		
+		//data[1] := data[1] + (((data[0] * 16) + key[2]) ^ (data[0] + sum) ^ ((data[0] / 32) + key[3]))
+		Load(ebx, edi, 0, tnt, data); // data[0]
+		Mov32(eax, 16); // 16
+		Mult32Wrap??(ebx, eax); // data[0]*16
+		Load(eax, esi, 8, tnt, key); // key[2]
+		Add32Wrap(ebx, eax); // data[1]*16 + key[0]
+		Load(edx, edi, 4, tnt, data); // data[0]
+		Mov32(eax, sum); // sum
+		Add32Wrap(eax, edx); // data[0] + sum
+		Xor32(ebx, eax);
+		Load(edx, edi, 0, tnt, data); // data[0]
+		Shr32(edx, 5); // data[0] / 32
+		Load(eax, esi, 12, tnt, key); // key[3]
+		Add32Wrap(edx, eax); // (data[0] / 32) + key[3]
+		Xor32(ebx, edx);
+		Load(edx, edi, 4, tnt, data); // data[1]
+		Add32Wrap(ebx, edx);
+		Store(edi, ebx, 4, tnt, data); // data[1]
+	}
+	i := i - 32;
+	sum := sum - 32*delta
+	delta := delta - 2654435769
+}
+\end{lstlisting}
 
 % To make sure that the backside print of the dissertation is a white page
 \newpage ~

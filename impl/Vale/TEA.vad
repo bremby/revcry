@@ -1,0 +1,80 @@
+/* TEA encryption algorithm
+ * data is an array of two words (64 bits)
+ * key is an array of four words (128 bits)
+ */
+//procedure TEA_encipher(int data[], int key[])
+    //local int delta = 2654435769
+    //local int sum = 0
+    //local int i = 0
+    //from i = 0 loop
+        //sum += delta
+        //data[0] += ((data[1] * 16) + key[0]) ^ (data[1] + sum) ^ ((data[1] / 32) + key[1])
+        //data[1] += ((data[0] * 16) + key[2]) ^ (data[0] + sum) ^ ((data[0] / 32) + key[3])
+        //i += 1
+    //until i = 32
+    //delocal int i = 32
+    //delocal int sum = 32*delta
+    //delocal int delta = 2654435769
+    
+
+procedure TEA_encipher(ghost data : heaplet_id, ghost key : heaplet_id, inline tnt:taint)
+	requires:
+		//SeqLength(key) == 4;
+		//SeqLength(data) == 2;
+	reads:
+		mem; edi; esi;
+	modifies:
+		eax; ebx; ecx; edx; mem;
+{
+	var delta : int := 2654435769;
+	var sum : int := 0;
+	var i : int := 0;
+	for (ecx := 0; ecx != 32; ecx++) decreases ecx; {
+		//sum := sum + delta
+		Add32Wrap(sum, delta);
+		//data[0] := data[0] + (((data[1] * 16) + key[0]) ^ (data[1] + sum) ^ ((data[1] / 32) + key[1]))
+		Load(ebx, edi, 4, tnt, data); // data[1]
+		Mov32(eax, 16); // 16
+		Mult32Wrap??(ebx, eax); // data[1]*16
+		Load(eax, esi, 0, tnt, key); // key[0]
+		Add32Wrap(ebx, eax); // data[1]*16 + key[0]
+		Load(edx, edi, 4, tnt, data); // data[1]
+		Mov32(eax, sum); // sum
+		Add32Wrap(eax, edx); // data[1] + sum
+		Xor32(ebx, eax);
+		Load(edx, edi, 4, tnt, data); // data[1]
+		Shr32(edx, 5); // data[1] / 32
+		Load(eax, esi, 4, tnt, key); // key[1]
+		Add32Wrap(edx, eax); // (data[1] / 32) + key[0]
+		Xor32(ebx, edx);
+		Load(edx, edi, 0, tnt, data); // data[0]
+		Add32Wrap(ebx, edx);
+		Store(edi, ebx, 0, tnt, data); // data[0]
+		
+		
+		//data[1] := data[1] + (((data[0] * 16) + key[2]) ^ (data[0] + sum) ^ ((data[0] / 32) + key[3]))
+		Load(ebx, edi, 0, tnt, data); // data[0]
+		Mov32(eax, 16); // 16
+		Mult32Wrap??(ebx, eax); // data[0]*16
+		Load(eax, esi, 8, tnt, key); // key[2]
+		Add32Wrap(ebx, eax); // data[1]*16 + key[0]
+		Load(edx, edi, 4, tnt, data); // data[0]
+		Mov32(eax, sum); // sum
+		Add32Wrap(eax, edx); // data[0] + sum
+		Xor32(ebx, eax);
+		Load(edx, edi, 0, tnt, data); // data[0]
+		Shr32(edx, 5); // data[0] / 32
+		Load(eax, esi, 12, tnt, key); // key[3]
+		Add32Wrap(edx, eax); // (data[0] / 32) + key[3]
+		Xor32(ebx, edx);
+		Load(edx, edi, 4, tnt, data); // data[1]
+		Add32Wrap(ebx, edx);
+		Store(edi, ebx, 4, tnt, data); // data[1]
+	}
+	i := i - 32;
+	sum := sum - 32*delta
+	delta := delta - 2654435769
+}
+
+
+
