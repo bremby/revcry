@@ -1,3 +1,4 @@
+// https://eprint.iacr.org/2013/404.pdf
 
 /* Rotate 'x' by 'r' bits to the left */
 procedure rotate_left_u32(u32 x, int r)
@@ -119,11 +120,6 @@ procedure main()
     
     data[0] += 42
     data[1] += 27
-    
-    more_data[0] += 42
-    more_data[1] += 27
-    more_data[2] += 42
-    more_data[3] += 27
     
     num_rounds += 32
     

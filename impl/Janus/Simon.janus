@@ -1,3 +1,4 @@
+// https://eprint.iacr.org/2013/404.pdf
 
 /* Rotate 'x' by 'r' bits to the left */
 procedure rotate_left_u32(u32 x, int r)
@@ -16,74 +17,128 @@ procedure rotate_left_u32(u32 x, int r)
  * z4 = 3781244162168104175
  */
 
-procedure get_tmp(u32 k, int m, u32 tmp)
-    local u32 tmp2 = 0
-    tmp += key_expanded[i-1]
+procedure set_T_j(int n, int m, int T, int j)
+    if n = 16 then
+        T += 32
+    fi n = 16
+    
+    if n = 24 then
+        T += 36
+        if m = 4 then
+            j += 1
+        fi m = 4
+    fi n = 24
+    
+    if n = 32 then
+        if m = 3 then
+            T += 42 
+            j += 2
+        fi m = 3
+        if m = 4 then
+            T += 44
+            j += 3
+        fi m = 4
+    fi n = 32
+    
+    if n = 48 then
+        if m = 2 then
+            T += 52 
+            j += 2
+        fi m = 2
+        if m = 3 then
+            T += 54
+            j += 3
+        fi m = 3
+    fi n = 48
+    
+    if n = 64 then
+        if m = 2 then
+            T += 68
+            j += 2
+        fi m = 2
+        if m = 3 then
+            T += 69
+            j += 3
+        fi m = 3
+        if m = 4 then
+            T += 72
+            j += 4
+        fi m = 4
+    fi n = 64
+
+procedure get_tmp(u32 k1, u32 k2, int m, u32 tmp, u32 garbage)
+    tmp += k1
     uncall rotate_left_u32(tmp, 3)
     if m = 4 then
-        tmp ^= k[i-3]
+        tmp ^= k2
     fi m = 4
-    tmp2 += tmp
-    uncall rotate_left_u32(tmp2, 1)
-    tmp ^= tmp2
-    call rotate_left_u32(tmp2, 1)
-    delocal u32 tmp2 = tmp
+    garbage += tmp
+    call rotate_left_u32(tmp, 1)
+    tmp ^= garbage
 
-procedure get_bit(int j, int i, int bit)
+procedure get_bit(int j, int i, u32 bit)
     local u32 z[5] = {0b11111010001001010110000111001101111101000100101011000011100110,
                       0b10001110111110010011000010110101000111011111001001100001011010,
                       0b10101111011100000011010010011000101000010001111110010110110011,
                       0b11011011101011000110010111100000010010001010011100110100001111,
                       0b11010001111001101011011000100000010111000011001010010011101111}
-    local u32 tmp 
-    if z[j] & (1 << (32 - i)) != 0 then
+    if ((z[j] & (1 << (32 - i))) != 0) then
         bit += 1
-    fi z[j] & (1 << (32 - i)) != 0
+    fi ((z[j] & (1 << (32 - i))) != 0)
     delocal u32 z[5] = {0b11111010001001010110000111001101111101000100101011000011100110,
                         0b10001110111110010011000010110101000111011111001001100001011010,
                         0b10101111011100000011010010011000101000010001111110010110110011,
                         0b11011011101011000110010111100000010010001010011100110100001111,
                         0b11010001111001101011011000100000010111000011001010010011101111}
 
-procedure Simon_key_expansion(u32 key[], u32 key_expanded[], int rounds)
+procedure Simon_key_expansion(u32 key[], u32 key_expanded[])
     local int m = size(key)
+    local int T = 0
+    local int j = 0
     local u32 tmp = 0
-    local int i = 0
+    local u32 garbage = 0
     local u32 bit = 0
-    from i = 0 loop
+    call set_T_j(32, m, T, j)
+    iterate int i = 0 by 1 to (m-1)
         key_expanded[i] += key[i]
-    until i = m
-    from i = m loop
-        call get_tmp(key_expanded[i-1], m, tmp)
+    end
+    iterate int i = m by 1 to (T-2)
+        call get_tmp(key_expanded[i-1], key_expanded[i-3], m, tmp, garbage)
         call get_bit(j, i-m % 62, bit)
         //k[i] += ~k[i-m] ^ tmp ^ z[j][i-m % 62] ^ 3
-        k[i] += ~k[i-m] ^ tmp ^ bit ^ 3
+        key_expanded[i] += ~key_expanded[i-m] ^ tmp ^ bit ^ 3
         uncall get_bit(j, i-m % 62, bit)
-        uncall get_tmp(key_expanded[i-1], m, tmp)
-        i += 1
-    until i = round
+        uncall get_tmp(key_expanded[i-1], key_expanded[i-3], m, tmp, garbage)
+    end
+    uncall set_T_j(32, m, T, j)
     delocal u32 bit = 0
-    delocal int i = rounds
+    delocal u32 garbage = 0
     delocal u32 tmp = 0
+    delocal int j = 0
+    delocal int T = 0
     delocal int m = size(key)
 
 // we don't want to employ Benett's trick, I think that's counterproductive in our case (for cryptoanalysis)
-//procedure Simon_round(int S1, int S2, int S8, 
 
-procedure Simon_encipher(u32 data[2], u32 key[], int rounds)
-    local u32 key_expanded[rounds]
+procedure Simon_encipher(u32 data[2], u32 key[])
+    local int T = 0
+    local int j = 0
+    call set_T_j(32, size(key), T, j)
+    local u32 key_expanded[T]
 	local int i = 0
     local u32 x1 = 0 //these variables are a nightmare to get rid of
     local u32 x2 = 0
     local u32 x8 = 0
+    local u32 rx = 0
+    
     call Simon_key_expansion(key, key_expanded)
     from i = 0 loop
         x1 += data[0]
-        call rotate_left_u32(x1, 1)
+        uncall rotate_left_u32(x1, 1)
         x2 += data[0]
-        call rotate_left_u32(x2, 2)
+        uncall rotate_left_u32(x2, 2)
         x8 += data[0]
-        call rotate_left_u32(x8, 8)
+        uncall rotate_left_u32(x8, 8)
         /* The AND operation is lossful, i.e. it cannot be reversed without knowing all of its original operands.
          * Therefore, both x1 and x8 cannot be cleared just by using the rest of the variables used on the line below.
          * I need to think about this more.
@@ -100,29 +155,31 @@ procedure Simon_encipher(u32 data[2], u32 key[], int rounds)
         //x2 -= data[0] ^ (x1 & x8) ^ key_expanded[i]
         // R^-1(x, y) = (y, x ^ f(x) ^ k)
         rx += data[1]
-        //ry += data[0] ^ () ^ key_expanded[i]
-        call rotate_left_u32(rx, 1)
+        call rotate_left_u32(x1, 1)
         x1 -= rx
-        call rotate_left_u32(rx, 2)
+        call rotate_left_u32(x2, 2)
         x2 -= rx
-        call rotate_left_u32(rx, 8)
+        call rotate_left_u32(x8, 8)
         x8 -= rx
         rx -= data[1]
         i += 1
-    until i = rounds
+    until i = T
     uncall Simon_key_expansion(key, key_expanded)
+    
+    delocal u32 rx = 0
     delocal u32 x8 = 0
     delocal u32 x2 = 0
     delocal u32 x1 = 0
-    delocal int i = rounds
-    delocal u32 key_expanded[rounds]
+    delocal int i = T
+    delocal u32 key_expanded[T]
+    uncall set_T_j(32, size(key), T, j)
+    delocal int j = 0
+    delocal int T = 0
 
 
 procedure main()
     u32 key[4]
     u32 data[2]
-    u32 more_data[4]
-    int num_rounds
 
     key[0] += 0
     key[1] += 1
@@ -132,15 +189,10 @@ procedure main()
     data[0] += 42
     data[1] += 27
     
-    more_data[0] += 42
-    more_data[1] += 27
-    more_data[2] += 42
-    more_data[3] += 27
     
-    num_rounds += 32
     
     show(data)
-    call Simon_encipher(data, key, num_rounds)
+    call Simon_encipher(data, key)
     show(data)
-    uncall Simon_encipher(data, key, num_rounds)
+    uncall Simon_encipher(data, key)
     show(data)
