@@ -116,59 +116,6 @@
 % Set background to rest of pages
 \usebackgroundtemplate{\includegraphics[width=\paperwidth,height=\paperheight]{background}}
 
-%\begin{frame}
-%  \frametitle{Hello I'm ...}
-%  \centering
-%  \begin{tabular}[t]{cp{6cm}}
-%    \basetop{\includegraphics[width=60pt]{troy}}&\textbf{Your Name.} Trivia. Web: \url{http://www.diku.dk}
-%  \end{tabular}
-%\vspace{0.5cm}\\
-%  You might remember me from such celebrity courses as: ....
-%\end{frame}
-
-%\begin{frame}
-%  \frametitle{Theorem}
-%  \begin{definition}
-%    Deft Definition
-%  \end{definition}
-%  \begin{lemma}
-%    Deft Lemma
-%  \end{lemma}
-%  \begin{theorem}
-%    Deft Fikumdik
-%  \end{theorem}
-%  \begin{corollary}
-%    Deft Corollary
-%  \end{corollary}
-%\end{frame}
-
-
-
-
-%\begin{frame}
-% \frametitle{Outline}
-% \tableofcontents
-%\end{frame}
-%
-%
-%\section{Reversible Computation} 
-%\subsection{Problem of Information Destruction} 
-%\subsection{Models and concepts} 
-%\section{Reversible Logic and Circuits}
-%\subsection{Circuit design restrictions}
-%\subsection{Gates}
-%\subsection{Concepts}
-%\section{This Language}
-%\subsection{Motivation}
-%\subsection{Syntax}
-%\subsection{Combinators}
-%\section{Future work}
-
-
-
-
-
-
 
 
 
@@ -191,7 +138,6 @@ What is the universe going to look like in $10^{40}$ years?
 \includegraphics[width=11cm]{universe_timeline.png}%
 \\
 \textit{\footnotesize{Source: Wikipedia}}
-%\bcite{DeVos:1999,VanRentergemDeVos:2005}
 \\
 \footnotesize{(Proton decay is a different problem.)}
 \end{center}
@@ -229,80 +175,23 @@ Mostly only symmetric cryptography, simpler and more efficient algorithms.
 
 
 
-
-
-%Landauer
-\addtocounter{page}{1}
-\begin{frame}
-\addtocounter{page}{-1}
-\frametitle{Lightweight Cryptography ...\\ \hspace*{120pt} ... and Reversible Computation}
-%\framesubtitle{\hspace{5mm}Why?} 
-
-\pause
-
-\begin{block}{}
-Lightweight cryptography has a limited scope, and is useful in smaller devices (\eg IoT, modular systems, real-time systems).
-\end{block}
-
-\pause
-
-\begin{block}{}
-
-Reversible computation is especially useful for bijective functions, 
-which encryption definitely fits. \note{bijective also implies lack of information erasure.}
-
-\end{block}
-
-
-\pause 
-Low-power devices should also eventually take advantage of the low-power consumption implication of reversibility.
-
-\end{frame}
-
-
-\addtocounter{page}{1}
-\begin{frame}
-\addtocounter{page}{-1}
-\frametitle{Bijective Functions}
-%\framesubtitle{\hspace{5mm}and their relation to reversible encryption} 
-
-\begin{block}{} 
-
-We assume encryption is a bijective function, \ie a one-to-one mapping 
-of some input to some output - no input checks, simple data 
-transformation. \note{so no hashing}
-
-We also assume we are able to implement the encryption function using a reversible language.
-\note{reversible TMs have the same expressive power as irreversible ones}
-
-\end{block}
-
-\pause
-\vspace{5mm}
-For any bijective function, there exists its inverse bijection.
-
-\pause
-\vspace{5mm}
-\highlight{With reversible code, we obtain the inverse function by reversing (inverting) the code.}
-
-\end{frame}
-
-
 \addtocounter{page}{1}
 \begin{frame}
 \addtocounter{page}{-1}
 \frametitle{Symmetric Cryptography}
 %\framesubtitle{\hspace{5mm}Computational Models} 
 
-
+\pause
 \begin{block}{Duality}
 Symmetric and crypto functions are bijective functions with a clear encryption/decryption duality.
 \end{block}
 
+\pause
 \begin{block}{I/O}
 Input and output are similar with having at least two parameters: the key and the plaintext or ciphertext.
 \end{block}
 
+\pause
 \begin{block}{}
 \begin{align*}
 \exe{\enc}(k,p) &= (k,c) \\
@@ -320,6 +209,7 @@ Input and output are similar with having at least two parameters: the key and th
 \frametitle{Side channel vulnerabilities}
 %\framesubtitle{\hspace{5mm}} 
 
+\pause
 \begin{block}{}
 Algorithm's mathematical strength is one part of the security, its implementation is another.
 \end{block}
@@ -476,7 +366,7 @@ data[2] = {42, 27}
 \frametitle{Learning and improving Janus}
 \framesubtitle{\hspace{5mm}Goal \#3} 
 
-
+\pause
 \begin{block}{Learning}
 \begin{itemize}
 \item Implemented several crypto algorithms in Janus
@@ -484,6 +374,7 @@ data[2] = {42, 27}
 \end{itemize}
 \end{block}
 
+\pause
 \begin{block}{Improving}
 \begin{itemize}
 \item Fixed bugs in Jana
@@ -525,6 +416,7 @@ data[2] = {42, 27}
 \frametitle{Experiment}
 \framesubtitle{\hspace{5mm}Evaluating the first goal} 
 
+\pause
 \begin{enumerate}
 \item Examining leakage in both reference and our implementations
 \item Evaluating alternatives
@@ -535,9 +427,6 @@ data[2] = {42, 27}
 \item Secretgrind
 \item Vale, zerostack
 \end{enumerate}
-
-%\begin{block}{}
-%\end{block}
 
 \end{frame}
 
@@ -579,7 +468,7 @@ Total bytes tainted: 64
 %\framesubtitle{\hspace{5mm}} 
 
 \begin{columns}
-
+\pause
 \begin{column}{0.5\textwidth}
 \begin{block}{Vale}
 \begin{itemize}
@@ -593,6 +482,7 @@ Total bytes tainted: 64
 \end{block}
 \end{column}
 
+\pause
 \begin{column}{0.5\textwidth}
 \begin{block}{zerostack}
 \begin{itemize}
@@ -608,25 +498,6 @@ Total bytes tainted: 64
 \end{columns}
 
 \end{frame}
-
-
-
-
-
-
-
-%\addtocounter{page}{1}
-%\begin{frame}
-%\addtocounter{page}{-1}
-%\frametitle{}
-%%\framesubtitle{\hspace{5mm}} 
-
-%\begin{block}{}
-%\end{block}
-
-%\end{frame}
-
-
 
 
 
@@ -655,7 +526,7 @@ Total bytes tainted: 64
 \addtocounter{page}{1}
 \begin{frame}
 \addtocounter{page}{-1}
-\frametitle{Main contribution}
+\frametitle{Remember the black holes!}
 %\framesubtitle{\hspace{5mm}} 
 
 \pause
