@@ -1,0 +1,20 @@
+\ProvidesPackageRCS $Header: /usr/local/topps/mix/topps-cvsroot/tc/slides-sgi/beamerthemeDiku.sty,v 1.1 2009/09/21 08:20:37 hvitved Exp $
+
+% Copyright 2003 by Till Tantau <tantau@users.sourceforge.net>
+%
+% This program can be redistributed and/or modified under the terms
+% of the GNU Public License, version 2.
+
+\mode<presentation>
+
+\useinnertheme[shadow=true]{rounded}
+\useoutertheme{default}
+\usecolortheme{diku}
+
+\setbeamerfont{block title}{size={}}
+
+\let\oldframetitle\frametitle
+\renewcommand{\frametitle}[1]{\oldframetitle{\begin{tabular}{l}\\#1\end{tabular}}}
+
+\mode
+<all>
